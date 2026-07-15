@@ -33,26 +33,118 @@ In Phase 1, we use a lightweight setup where GitHub Actions orchestrates the wor
 
 ### 3.1. Architecture
 
-* **Orchestrator:** GitHub Actions (via a self-hosted runner at OSU-OSL).
+* **Orchestrator:** GitHub Actions + runner on a board (arm64/amd64) running at OSU/OSL
 * **Board Control & Boot:** Labgrid (PDU for power, USB-TTL for serial).
 * **Test Execution:** SSH (over local network once the OS is booted).
 * **File Server:** Local TFTP server on the gateway.
 
 ### 3.2. Workflow
 
-1. **Build:** GitHub Actions compiles the kernel/FIT image.
-2. **Stage:** The runner copies the `fitImage` to the local TFTP directory.
-3. **Acquire:** The runner uses `pytest-labgrid` to lock the target A210 board.
-4. **Boot (Serial):** Labgrid:
-   * Power-cycles the board via the PDU.
-   * Intercepts the U-Boot prompt over serial.
-   * Dynamically configures U-Boot env vars (IP, TFTP server).
-   * Executes `tftpboot` and boots the image.
-5. **Test (SSH):**
-   * The runner waits for the board's SSH daemon to become active.
-   * The test script connects to the board via **SSH** to run the test suite.
-   * *Fallback:* If SSH fails to connect, the runner dumps the serial console log to diagnose boot/network failures.
-6. **Release:** The runner releases the board lock.
+There are two kinds of runners necessary for that setup:
+- GitHub hosted runners: they are hosted directly by GitHub (e.g. `ubuntu-latest`, `ubuntu-24.04`, `ubuntu-24.04-arm`, etc.). They are hosted in a datacenter somewhere we do not have direct access to, and they are the fastest machine we have access to. The [RISE RISC-V Runners](https://riscv-runners.riseproject.dev/) are in this category as we can't assume where they are hosted
+- A self-hosted `board-farm-controller` runner hosted at OSU-OSL. We are provisioning it to run on the same machine as the TFTP/DHCP and Labgrid Controller. This runner can't be doing heavy compute work (build, test) and it should be used exclusively to download/upload artifacts and interact with Labgrid. We _may_ (TBD) want to support multiple runners on this single machine to allow for multiple GHA workflows to use the cluster at the same time; Concurrency is controlled with <a href="https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency"><code>concurrency</code></a>
+
+<table>
+<tr>
+  <th></th>
+  <th>Steps</th>
+  <th>Runner</th>
+  <th>Description</th>
+</tr>
+<tr>
+  <td>1</td>
+  <td><strong>Build</strong></td>
+  <td><code>ubuntu-24.04</code> or <code>ubuntu-24.04-riscv</code></td>
+  <td>Compile the kernel/FIT image on a hosted runner (e.g. <code>ubuntu-24.04</code>, <code>ubuntu-24.04-arm</code>, <code>ubuntu-24.04-riscv</code>) and upload the image to GHA artifacts (<code>actions/upload-artifacts</code>)</td>
+  </tr>
+<tr>
+  <td>2</td>
+  <td><strong>Stage</strong></td>
+  <td rowspan="5"><code>[self-hosted, board-farm-controller]</code><br/>All steps running sequentially in a single GHA job; Concurrency controlled by <a href="https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency"><code>concurrency</code></a></td>
+  <td>Download the kernel/FIT image (<code>actions/download-artifacts</code>) and store it locally; If that runner is running on the TFTP/DHCP server, then it can simply store it on the local filesystem</td>
+  </tr>
+<tr>
+  <td>3</td>
+  <td><strong>Acquire</strong></td>
+  <td>The runner uses <code>pytest-labgrid</code> to lock the target A210 board; The runner must have network access to the Labgrid Controller, or even be hosted all on the same machine</td>
+  </tr>
+<tr>
+  <td>4</td>
+  <td><strong>Boot (serial)</strong></td>
+  <td>Labgrid:<br/>- Power-cycles the board via the PDU.<br/>- Intercepts the U-Boot prompt over serial.<br/>- Dynamically configures U-Boot env vars (IP, TFTP server).<br/>- Executes <code>tftpboot</code> and boots the image.</td>
+  </tr>
+<tr>
+  <td>5</td>
+  <td><strong>Test (SSH)</strong></td>
+  <td>- The runner waits for the board's SSH daemon to become active.<br/>- The test script connects to the board via <strong>SSH</strong> to run the test suite.<br/>- <em>Fallback:</em> If SSH fails to connect, the runner dumps the serial console log to diagnose</td>
+  </tr>
+<tr>
+  <td>6</td>
+  <td><strong>Release:</strong></td>
+  <td>The runner releases the board lock.</td>
+  </tr>
+</table>
+
+A sample GHA workflow would look like the following:
+```yaml
+name: Kernel testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      machine:
+        description: Target machine to test on
+        required: true
+        type: string
+
+jobs:
+  build:
+    name: Build Kernel
+    runs-on: ubuntu-24.04
+    steps:
+      - name: build kernel
+        run: ... # compile the kernel/FIT image
+      - name: upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-image
+          path: ... # path to the built kernel/FIT image
+
+  test:
+    name: Boot & Test Kernel
+    needs: build
+    runs-on: [self-hosted, board-farm-controller]
+    # Concurrency is scoped per-machine so multiple workflows can't fight over the same board.
+    concurrency:
+      group: board-farm-${{ inputs.machine }}
+      cancel-in-progress: false
+    steps:
+      - name: download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: kernel-image
+          path: /path/to/tftp-root
+
+      - name: acquire
+        run: |
+          # acquire labgrid machine ${{ inputs.machine }}
+
+      - name: dhcp-setup
+        run: |
+          # does the right file mangling with the artifacts for the DHCP/TFTP server to pick up the files
+
+      - name: boot
+        run: |
+          # do power cycling of machine ${{ inputs.machine }}, read console until it's booted, wait up to XX minutes
+
+      - name: test
+        run: |
+          # connect via SSH to machine ${{ inputs.machine }}
+
+      - name: release
+        run: |
+          # release labgrid machine ${{ inputs.machine }}
+```
 
 ## 4. Macro Phase 2: OpenStack & OpenBMC Production
 
