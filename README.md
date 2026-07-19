@@ -52,3 +52,9 @@ Phase 1 (MVP)                             Phase 2 (Production Cloud)
 * **[Labgrid DHCP & TFTP Research](docs/phase-1-labgrid-pilot/labgrid-dhcp-tftp-research.md):** Labgrid 4-role process model, U-Boot TFTP vs PXE boot flows, and network isolation rules.
 * **[OpenBMC RISC-V BMC Plan](docs/phase-2-openbmc-production/openbmc-riscv-bmc-plan.md):** Implementation plan for OpenBMC multi-host Redfish controllers on x86 exporter hardware.
 * **[TFTP Boot & GHA Flashing Design](docs/architecture-design/tftp-boot-gha-and-flashing-design.md):** GitHub Actions workflows, TFTP boot, and exclusive container pool testing designs.
+
+### 🔌 Hardware Profiles & Specs (`boards/`)
+* **[Hardware Catalog & Matrix](boards/README.md):** Hardware catalog matrix across existing boards in the board farm.
+* **[Hardware Onboarding Compliance](boards/compliance-requirements.md):** Target hardware onboarding compliance, firmware open-source disclosure policies, and upstream kernel patching plans.
+
+
