@@ -1,6 +1,10 @@
-# RISE Board Farm Management Stack
+# RISE Board Farm
 
 Welcome to the central repository for the **RISE RISC-V Board Farm** management software, hardware bring-up specifications, and CI integration architecture hosted at RISE Board Farm.
+
+## About RISE
+
+[RISE](https://riseproject.dev) is a collaborative, industry-led initiative under the Linux Foundation that accelerates open-source software development for the RISC-V architecture.
 
 ---
 
