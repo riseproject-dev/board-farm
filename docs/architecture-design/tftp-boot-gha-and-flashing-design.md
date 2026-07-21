@@ -1,8 +1,6 @@
 # RISE Board Farm: TFTP Boot, GitHub Actions, and Flashing Design
 
-Modified: Jul 1, 2026
-Authors:  [luhenry@qti.qualcomm.com](mailto:luhenry@qti.qualcomm.com), [Puneetha Ramachandra](mailto:puneetha@google.com)
-Draft > Review > Execution > Complete
+**Status:** Draft | **Authors:** [Puneetha Ramachandra](mailto:puneetha@google.com), [Ludovic Henry](mailto:ludovic.henry@qti.qualcomm.com)
 
 ## 1. Objective
 
