@@ -1,6 +1,6 @@
 # Labgrid Architecture: Components, Network Services, and Boot Flow
 
-*Date: 2026-06-19*
+**Status:** Draft | **Authors:** [Puneetha Ramachandra](mailto:puneetha@google.com), [Ludovic Henry](mailto:ludovic.henry@qti.qualcomm.com)
 
 ## The Four Roles
 
