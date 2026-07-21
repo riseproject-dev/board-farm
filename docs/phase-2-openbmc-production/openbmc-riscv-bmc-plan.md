@@ -1,5 +1,7 @@
 # OpenBMC RISC-V Lab BMC — Implementation Plan
 
+**Status:** Draft | **Authors:** [Puneetha Ramachandra](mailto:puneetha@google.com), [Ludovic Henry](mailto:ludovic.henry@qti.qualcomm.com)
+
 ## Context
 
 You have 200–300 RISC-V machines spread across ~8–12 exporter hosts (24–48 machines per host).
