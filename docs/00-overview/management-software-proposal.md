@@ -1,8 +1,6 @@
 # RISE Board Farm: Project Proposal for Board Farm Management SW
 
-**Status:** Draft
-**Author:** [puneetha@google.com](mailto:puneetha@google.com), [Ludovic Henry](mailto:luhenry@qti.qualcomm.com)
-**Date (last update):** Jun 18, 2026
+**Status:** Draft | **Authors:** [puneetha@google.com](mailto:puneetha@google.com), [Ludovic Henry](mailto:ludovic.henry@qti.qualcomm.com)
 
 # Names and ssh public keys of the project leads
 
