@@ -54,11 +54,19 @@ jobs:
         run: |
           ENV_FILE="experiment/gha-test/lab_env.yaml"
           TEST_FILE="experiment/gha-test/tests/test_kernel.py"
-          if [ ! -f "$ENV_FILE" ] && [ -f "/workspace/$ENV_FILE" ]; then
-            echo "[Notice] Local git checkout missing experiment files; falling back to mounted /workspace..."
-            ENV_FILE="/workspace/$ENV_FILE"
-            TEST_FILE="/workspace/$TEST_FILE"
+
+          if [ ! -f "$ENV_FILE" ]; then
+            if [ -f "/workspace/lab_env.yaml" ]; then
+              echo "[Notice] Falling back to mounted /workspace/lab_env.yaml"
+              ENV_FILE="/workspace/lab_env.yaml"
+              TEST_FILE="/workspace/tests/test_kernel.py"
+            elif [ -f "/workspace/$ENV_FILE" ]; then
+              echo "[Notice] Falling back to mounted /workspace/$ENV_FILE"
+              ENV_FILE="/workspace/$ENV_FILE"
+              TEST_FILE="/workspace/$TEST_FILE"
+            fi
           fi
+
           /opt/venv/bin/pytest -s \
             --lg-env="$ENV_FILE" \
             --junitxml=results.xml \
