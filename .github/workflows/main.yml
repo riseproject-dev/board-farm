@@ -48,17 +48,25 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: kernel-image
-          path: /tmp/tftp/${{ inputs.machine || 'qemu-board-01' }}/
+          path: /tmp/tftp/qemu-board/
 
       - name: Execute Hardware Test Suite
         run: |
+          ENV_FILE="experiment/gha-test/lab_env.yaml"
+          TEST_FILE="experiment/gha-test/tests/test_kernel.py"
+          if [ ! -f "$ENV_FILE" ] && [ -f "/workspace/$ENV_FILE" ]; then
+            echo "[Notice] Local git checkout missing experiment files; falling back to mounted /workspace..."
+            ENV_FILE="/workspace/$ENV_FILE"
+            TEST_FILE="/workspace/$TEST_FILE"
+          fi
           /opt/venv/bin/pytest -s \
-            --lg-env=experiment/gha-test/lab_env.yaml \
+            --lg-env="$ENV_FILE" \
             --junitxml=results.xml \
-            experiment/gha-test/tests/test_kernel.py
+            "$TEST_FILE"
 
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-results-action@v2
+      - name: Upload Test Results Artifact
+        uses: actions/upload-artifact@v4
         if: always()
         with:
-          files: "results.xml"
+          name: test-results-xml
+          path: results.xml
