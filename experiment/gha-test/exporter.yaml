@@ -1,0 +1,16 @@
+qemu-board-01:
+  serial:
+    cls: NetworkSerialPort
+    host: 127.0.0.1
+    port: 2001
+    protocol: raw
+  power:
+    cls: NetworkPowerPort
+    model: custom
+    host: 127.0.0.1
+    index: 1
+  tftp:
+    cls: RemoteTFTPProvider
+    host: localhost
+    internal: /tmp/tftp/qemu-board/
+    external: qemu-board/

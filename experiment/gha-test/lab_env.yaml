@@ -1,0 +1,19 @@
+# Labgrid Environment Configuration for Pytest Client using Coordinator
+targets:
+  main:
+    resources:
+      RemotePlace:
+        name: "qemu-board-01"
+    drivers:
+      SerialDriver: {}
+      UBootDriver: {}
+      ShellDriver:
+        prompt: "root@qemu-board:~#"
+        login_prompt: "qemu-board login:"
+        username: "root"
+
+roles:
+  main:
+    - main
+  qemu-board-01:
+    - main

@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    netcat-openbsd \
+    iputils-ping \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment to isolate labgrid and pytest entrypoints
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN pip install --no-cache-dir labgrid pytest
+
+WORKDIR /labgrid
+CMD ["labgrid-coordinator"]

@@ -1,0 +1,67 @@
+services:
+  # 1. DHCP + TFTP Gateway Service
+  lab-gateway:
+    image: strm/dnsmasq
+    container_name: lab-gateway
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - /tmp/tftp:/srv/tftp
+    command: >
+      --port=0
+      --interface=lo
+      --bind-interfaces
+      --dhcp-range=192.168.100.50,192.168.100.100,12h
+      --enable-tftp
+      --tftp-root=/srv/tftp
+    restart: unless-stopped
+
+  # 2. Labgrid Coordinator Service (Central Lock & Resource Registry)
+  labgrid-coordinator:
+    build:
+      context: .
+      dockerfile: Dockerfile.labgrid
+    container_name: labgrid-coordinator
+    network_mode: host
+    command: labgrid-coordinator --listen 127.0.0.1:20408
+    restart: unless-stopped
+
+  # 3. Labgrid Exporter Service (PDU Control, Serial & Hardware Exporter)
+  labgrid-exporter:
+    build:
+      context: .
+      dockerfile: Dockerfile.labgrid
+    container_name: labgrid-exporter
+    network_mode: host
+    environment:
+      - TARGET_TYPE=riscv64
+    volumes:
+      - ./exporter.yaml:/etc/labgrid/exporter.yaml:ro
+      - ./qemu-power.sh:/labgrid/qemu-power.sh:ro
+      - /tmp/tftp:/tmp/tftp
+      - /tmp:/tmp
+    command: labgrid-exporter --coordinator 127.0.0.1:20408 /etc/labgrid/exporter.yaml
+    depends_on:
+      - labgrid-coordinator
+    restart: unless-stopped
+
+  # 4. GitHub Actions Self-Hosted Runner Service (Orchestrator & Test Runner)
+  gha-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.gha-runner
+    container_name: gha-runner
+    network_mode: host
+    environment:
+      - GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-riseproject-dev/board-farm}
+      - RUNNER_TOKEN=${RUNNER_TOKEN:-AR6SMT7VWPUK3YPICPPVKHTKMKAVA}
+      - TARGET_TYPE=riscv64
+      - LG_CROSSBAR=ws://127.0.0.1:20408/ws
+    volumes:
+      - .:/workspace
+      - /tmp/tftp:/tmp/tftp
+    depends_on:
+      - labgrid-coordinator
+      - labgrid-exporter
+      - lab-gateway
