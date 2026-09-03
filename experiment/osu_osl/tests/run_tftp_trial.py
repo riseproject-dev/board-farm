@@ -10,18 +10,38 @@ import serial
 import threading
 import subprocess
 
-PORT = "/dev/ttyUSB1"
+import argparse
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="A210 TFTP RAM Netboot Execution Script")
+    parser.add_argument(
+        "--board",
+        choices=["a210-board-01", "a210-board-02", "a210-1", "a210-2"],
+        default="a210-board-02",
+        help="Target A210 board to netboot",
+    )
+    return parser.parse_args()
+
+args = parse_args()
+if args.board in ["a210-board-01", "a210-1"]:
+    BOARD_NAME = "a210-board-01"
+    PORT = "/dev/ttyUSB0"
+    TARGET_SSH = "root@10.6.4.12"
+else:
+    BOARD_NAME = "a210-board-02"
+    PORT = "/dev/ttyUSB1"
+    TARGET_SSH = "root@10.6.4.13"
+
 BAUD = 115200
 SERVER_IP = "10.6.4.11"
-TARGET_SSH = "root@10.6.4.13"
 
 def trigger_reboot(ser):
     time.sleep(2)
     # Step 2: Reboot target into U-Boot
-    print("\n[Host] Sending SSH reboot to root@10.6.4.13...", flush=True)
+    print(f"\n[Host] Sending SSH reboot to {TARGET_SSH}...", flush=True)
     try:
         subprocess.run(
-            ["ssh", "-o", "StrictHostKeyChecking=no", "root@10.6.4.13", "reboot"],
+            ["ssh", "-o", "StrictHostKeyChecking=no", TARGET_SSH, "reboot"],
             timeout=5,
             capture_output=True,
         )
@@ -67,8 +87,8 @@ def send_uboot_cmd(ser, cmd, timeout=30):
 
 def main():
     print(f"============================================================")
-    print(f" A210-2 TFTP Netboot Trial (Safe RAM Boot)")
-    print(f" Target: a210-2 via {PORT} @ {BAUD}")
+    print(f" {BOARD_NAME} TFTP Netboot Trial (Safe RAM Boot)")
+    print(f" Target: {BOARD_NAME} ({TARGET_SSH}) via {PORT} @ {BAUD}")
     print(f" Server: {SERVER_IP}")
     print(f"============================================================", flush=True)
 
