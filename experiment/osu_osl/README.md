@@ -270,17 +270,63 @@ jobs:
           path: results.xml
 ```
 
+### 4.2. TFTP Netboot Workflow (`a210_netboot.yml`)
+
+The TFTP Netboot workflow is stored at [`.github/workflows/a210_netboot.yml`](file:///usr/local/google/home/puneetha/RISE/git-repo/board-farm/.github/workflows/a210_netboot.yml). It executes the automated in-memory RAM netboot pipeline (`run_tftp_trial.py`) over U-Boot:
+
+```yaml
+name: A210 TFTP RAM Netboot (OSU OSL)
+
+on:
+  workflow_dispatch:
+    inputs:
+      board:
+        description: 'Target A210 board to netboot'
+        required: true
+        default: 'a210-board-02'
+        type: choice
+        options:
+          - a210-board-02
+          - a210-board-01
+
+jobs:
+  netboot:
+    name: Run In-Memory TFTP Netboot Trial
+    runs-on: [self-hosted, board-farm-controller]
+    concurrency:
+      group: board-farm-${{ inputs.board }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Execute TFTP Netboot Sequence in RAM
+        run: |
+          BOARD="${{ inputs.board }}"
+          echo "=========================================================="
+          echo " Executing In-Memory TFTP Netboot on: $BOARD"
+          echo "=========================================================="
+
+          TEST_SCRIPT="experiment/osu_osl/tests/run_tftp_trial.py"
+          if [ ! -f "$TEST_SCRIPT" ]; then
+            if [ -f "/workspace/phase2_test/run_tftp_trial.py" ]; then
+              TEST_SCRIPT="/workspace/phase2_test/run_tftp_trial.py"
+            fi
+          fi
+
+          python3 "$TEST_SCRIPT"
+```
+
 ---
 
-## 5. How to Trigger Tests on Hardware via GitHub UI
+## 5. How to Trigger Workflows via GitHub UI
 
-1. Open the workflow page:
-   👉 **[https://github.com/riseproject-dev/board-farm/actions/workflows/a210_telemetry.yml](https://github.com/riseproject-dev/board-farm/actions/workflows/a210_telemetry.yml)**
+1. Open the workflows in GitHub Actions:
+   - **Telemetry Test**: 👉 [https://github.com/riseproject-dev/board-farm/actions/workflows/a210_telemetry.yml](https://github.com/riseproject-dev/board-farm/actions/workflows/a210_telemetry.yml)
+   - **TFTP Netboot**: 👉 [https://github.com/riseproject-dev/board-farm/actions/workflows/a210_netboot.yml](https://github.com/riseproject-dev/board-farm/actions/workflows/a210_netboot.yml)
 2. Click **Run workflow** (upper right).
 3. Select `Branch: main`.
-4. Choose target board:
-   - `a210-board-02` (`10.6.4.13`)
-   - `a210-board-01` (`10.6.4.12`)
+4. Choose target board (`a210-board-02` or `a210-board-01`).
 5. Click **Run workflow**.
 
 ---
