@@ -61,7 +61,7 @@ def send_uboot_cmd(ser, cmd, timeout=30):
             sys.stdout.write(chunk)
             sys.stdout.flush()
             buf += chunk
-            if "=>" in buf:
+            if "=>" in buf or "u-boot#" in buf:
                 return True, buf
     return False, buf
 
@@ -76,7 +76,7 @@ def main():
     ser.reset_input_buffer()
 
     # Step 1: Reboot in background thread
-    t = threading.Thread(target=trigger_reboot)
+    t = threading.Thread(target=trigger_reboot, args=(ser,))
     t.daemon = True
     t.start()
 
@@ -102,7 +102,7 @@ def main():
                     u_boot_interrupted = True
                     buf = ""
 
-            if u_boot_interrupted and "=>" in buf:
+            if u_boot_interrupted and ("u-boot#" in buf or "=>" in buf):
                 print("\n[Host] >>> U-BOOT PROMPT ACTIVE AND READY! <<<", flush=True)
                 break
     else:
