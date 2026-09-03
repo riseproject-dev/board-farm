@@ -28,9 +28,9 @@ def trigger_reboot(ser):
     except Exception as e:
         print(f"[Host Note] SSH reboot result: {e}", flush=True)
 
-    # Serial fallback: trigger reboot over serial line if target is in initramfs shell
+    # Serial fallback: trigger reset over serial line if target is in initramfs shell or u-boot
     try:
-        ser.write(b"\nreboot -f\nreboot\n")
+        ser.write(b"\nreset\nreboot -f\n")
     except Exception:
         pass
 
@@ -44,7 +44,7 @@ def wait_for_prompt(ser, prompt="=>", timeout=30):
             sys.stdout.write(chunk)
             sys.stdout.flush()
             buf += chunk
-            if prompt in buf:
+            if prompt in buf or "u-boot#" in buf:
                 return True
     return False
 
@@ -93,6 +93,10 @@ def main():
             sys.stdout.flush()
             buf += chunk
 
+            if "u-boot#" in buf or "=>" in buf:
+                print("\n[Host] >>> U-BOOT PROMPT ACTIVE AND READY! <<<", flush=True)
+                break
+
             if not u_boot_interrupted:
                 if any(x in buf.lower() for x in ["autoboot", "hit any key", "stop autoboot"]):
                     print("\n[Host] >>> DETECTED AUTOBOOT! SENDING INTERRUPT KEYSTROKES... <<<", flush=True)
@@ -101,10 +105,6 @@ def main():
                         time.sleep(0.05)
                     u_boot_interrupted = True
                     buf = ""
-
-            if u_boot_interrupted and ("u-boot#" in buf or "=>" in buf):
-                print("\n[Host] >>> U-BOOT PROMPT ACTIVE AND READY! <<<", flush=True)
-                break
     else:
         print("\n[Host Error] Timed out waiting for U-Boot prompt!", flush=True)
         ser.close()
