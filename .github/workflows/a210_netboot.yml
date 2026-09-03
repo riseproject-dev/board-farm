@@ -1,0 +1,40 @@
+name: A210 TFTP RAM Netboot (OSU OSL)
+
+on:
+  workflow_dispatch:
+    inputs:
+      board:
+        description: 'Target A210 board to netboot'
+        required: true
+        default: 'a210-board-02'
+        type: choice
+        options:
+          - a210-board-02
+          - a210-board-01
+
+jobs:
+  netboot:
+    name: Run In-Memory TFTP Netboot Trial
+    runs-on: [self-hosted, board-farm-controller]
+    concurrency:
+      group: board-farm-${{ inputs.board }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Execute TFTP Netboot Sequence in RAM
+        run: |
+          BOARD="${{ inputs.board }}"
+          echo "=========================================================="
+          echo " Executing In-Memory TFTP Netboot on: $BOARD"
+          echo "=========================================================="
+
+          TEST_SCRIPT="experiment/osu_osl/tests/run_tftp_trial.py"
+          if [ ! -f "$TEST_SCRIPT" ]; then
+            if [ -f "/workspace/phase2_test/run_tftp_trial.py" ]; then
+              TEST_SCRIPT="/workspace/phase2_test/run_tftp_trial.py"
+            fi
+          fi
+
+          python3 "$TEST_SCRIPT"
