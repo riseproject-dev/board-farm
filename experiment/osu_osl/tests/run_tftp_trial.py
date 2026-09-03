@@ -15,15 +15,24 @@ BAUD = 115200
 SERVER_IP = "10.6.4.11"
 TARGET_SSH = "root@10.6.4.13"
 
-def trigger_reboot():
+def trigger_reboot(ser):
     time.sleep(2)
-    print(f"\n[Host] Sending SSH reboot to {TARGET_SSH}...", flush=True)
+    # Step 2: Reboot target into U-Boot
+    print("\n[Host] Sending SSH reboot to root@10.6.4.13...", flush=True)
     try:
-        res = subprocess.run(["ssh", "-o", "StrictHostKeyChecking=no", TARGET_SSH, "reboot"],
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
-        print(f"[Host] SSH reboot command exited (code {res.returncode})", flush=True)
+        subprocess.run(
+            ["ssh", "-o", "StrictHostKeyChecking=no", "root@10.6.4.13", "reboot"],
+            timeout=5,
+            capture_output=True,
+        )
     except Exception as e:
-        print(f"[Host] SSH reboot command note: {e}", flush=True)
+        print(f"[Host Note] SSH reboot result: {e}", flush=True)
+
+    # Serial fallback: trigger reboot over serial line if target is in initramfs shell
+    try:
+        ser.write(b"\nreboot -f\nreboot\n")
+    except Exception:
+        pass
 
 def wait_for_prompt(ser, prompt="=>", timeout=30):
     buf = ""
