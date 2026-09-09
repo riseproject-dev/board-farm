@@ -317,13 +317,55 @@ jobs:
           python3 "$TEST_SCRIPT"
 ```
 
+### 4.3. Native Labgrid UBoot TFTP Workflow (`a210_labgrid_uboot.yml`)
+
+The Native Labgrid UBoot Netboot workflow is stored at [`.github/workflows/a210_labgrid_uboot.yml`](file:///usr/local/google/home/puneetha/RISE/git-repo/board-farm/.github/workflows/a210_labgrid_uboot.yml). It uses Labgrid's native `UBootDriver` and `ExternalPowerDriver` (`ssh root@<IP> reboot`) to execute Pytest hardware netbooting:
+
+```yaml
+name: A210 Labgrid Native UBoot Netboot (OSU OSL)
+
+on:
+  workflow_dispatch:
+    inputs:
+      board:
+        description: 'Target A210 board to test'
+        required: true
+        default: 'a210-board-02'
+        type: choice
+        options:
+          - a210-board-02
+          - a210-board-01
+
+jobs:
+  labgrid-uboot-netboot:
+    name: Run Native Labgrid UBootDriver TFTP Netboot
+    runs-on: [self-hosted, board-farm-controller]
+    concurrency:
+      group: board-farm-${{ inputs.board }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Execute Pytest Suite with Native Labgrid UBootDriver
+        run: |
+          BOARD="${{ inputs.board }}"
+          export LG_CROSSBAR="ws://127.0.0.1:20408/ws"
+
+          ENV_FILE="experiment/osu_osl/lab_env_native_uboot_${BOARD}.yaml"
+          TEST_FILE="experiment/osu_osl/tests/test_native_uboot_netboot.py"
+
+          pytest -v -s --lg-env="$ENV_FILE" --junitxml=labgrid_uboot_results.xml "$TEST_FILE"
+```
+
 ---
 
 ## 5. How to Trigger Workflows via GitHub UI
 
 1. Open the workflows in GitHub Actions:
    - **Telemetry Test**: 👉 [https://github.com/riseproject-dev/board-farm/actions/workflows/a210_telemetry.yml](https://github.com/riseproject-dev/board-farm/actions/workflows/a210_telemetry.yml)
-   - **TFTP Netboot**: 👉 [https://github.com/riseproject-dev/board-farm/actions/workflows/a210_netboot.yml](https://github.com/riseproject-dev/board-farm/actions/workflows/a210_netboot.yml)
+   - **TFTP Netboot (Script)**: 👉 [https://github.com/riseproject-dev/board-farm/actions/workflows/a210_netboot.yml](https://github.com/riseproject-dev/board-farm/actions/workflows/a210_netboot.yml)
+   - **Native Labgrid UBoot Netboot (Pytest)**: 👉 [https://github.com/riseproject-dev/board-farm/actions/workflows/a210_labgrid_uboot.yml](https://github.com/riseproject-dev/board-farm/actions/workflows/a210_labgrid_uboot.yml)
 2. Click **Run workflow** (upper right).
 3. Select `Branch: main`.
 4. Choose target board (`a210-board-02` or `a210-board-01`).
