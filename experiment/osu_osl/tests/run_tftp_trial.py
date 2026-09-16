@@ -12,26 +12,38 @@ import subprocess
 
 import argparse
 
+BOARD_MAP = {
+    "a210-board-01": {"port": "/dev/ttyUSB0", "ssh": "root@10.6.4.12"},
+    "a210-board-02": {"port": "/dev/ttyUSB1", "ssh": "root@10.6.4.13"},
+    "a210-board-03": {"port": "/dev/ttyUSB2", "ssh": "root@10.6.4.14"},
+    "a210-board-04": {"port": "/dev/ttyUSB3", "ssh": "root@10.6.4.15"},
+    "a210-board-05": {"port": "/dev/ttyUSB4", "ssh": "root@10.6.4.16"},
+}
+
+# Add shorthands
+for i in range(1, 6):
+    BOARD_MAP[f"a210-{i}"] = BOARD_MAP[f"a210-board-{i:02d}"]
+
 def parse_args():
     parser = argparse.ArgumentParser(description="A210 TFTP RAM Netboot Execution Script")
     parser.add_argument(
         "--board",
-        choices=["a210-board-01", "a210-board-02", "a210-1", "a210-2"],
+        choices=list(BOARD_MAP.keys()),
         default="a210-board-02",
         help="Target A210 board to netboot",
     )
     return parser.parse_args()
 
 args = parse_args()
-if args.board in ["a210-board-01", "a210-1"]:
-    BOARD_NAME = "a210-board-01"
-    PORT = "/dev/ttyUSB0"
-    TARGET_SSH = "root@10.6.4.12"
+cfg = BOARD_MAP[args.board]
+if args.board.startswith("a210-board-"):
+    BOARD_NAME = args.board
 else:
-    BOARD_NAME = "a210-board-02"
-    PORT = "/dev/ttyUSB1"
-    TARGET_SSH = "root@10.6.4.13"
+    idx = int(args.board.split("-")[1])
+    BOARD_NAME = f"a210-board-{idx:02d}"
 
+PORT = cfg["port"]
+TARGET_SSH = cfg["ssh"]
 BAUD = 115200
 SERVER_IP = "10.6.4.11"
 

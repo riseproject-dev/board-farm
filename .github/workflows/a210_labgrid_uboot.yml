@@ -9,8 +9,11 @@ on:
         default: 'a210-board-02'
         type: choice
         options:
-          - a210-board-02
           - a210-board-01
+          - a210-board-02
+          - a210-board-03
+          - a210-board-04
+          - a210-board-05
 
 jobs:
   labgrid-uboot-netboot:

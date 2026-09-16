@@ -1,0 +1,27 @@
+targets:
+  main:
+    resources:
+      RawSerialPort:
+        port: "/dev/ttyUSB4"
+        speed: 115200
+      NetworkService:
+        address: "10.6.4.16"
+        username: "root"
+    drivers:
+      ExternalPowerDriver:
+        cmd_on: "true"
+        cmd_off: "true"
+        cmd_cycle: "ssh -o StrictHostKeyChecking=no root@10.6.4.16 reboot"
+      SerialDriver: {}
+      UBootDriver:
+        prompt: "u-boot#"
+        autoboot: "Hit any key to stop autoboot"
+        interrupt: " "
+      SSHDriver:
+        keyfile: "/root/.ssh/id_ed25519"
+
+roles:
+  main:
+    - main
+  a210-board-05:
+    - main

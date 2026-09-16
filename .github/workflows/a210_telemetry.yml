@@ -9,8 +9,11 @@ on:
         default: 'a210-board-02'
         type: choice
         options:
-          - a210-board-02
           - a210-board-01
+          - a210-board-02
+          - a210-board-03
+          - a210-board-04
+          - a210-board-05
 
 jobs:
   telemetry:
@@ -44,18 +47,21 @@ jobs:
           labgrid-client -p "$BOARD" acquire || true
           
           ENV_FILE="experiment/osu_osl/lab_env_${BOARD}.yaml"
-          TEST_FILE="experiment/osu_osl/tests/test_${BOARD}_telemetry.py"
+          TEST_FILE="experiment/osu_osl/tests/test_a210_telemetry.py"
+          if [ ! -f "$TEST_FILE" ]; then
+            TEST_FILE="experiment/osu_osl/tests/test_${BOARD}_telemetry.py"
+          fi
           
           # Fallback to mounted phase2_test workspace if run in container mount
           if [ ! -f "$ENV_FILE" ]; then
             if [ -f "/workspace/phase2_test/lab_env_${BOARD}.yaml" ]; then
               echo "[Fallback] Using mounted environment: /workspace/phase2_test/lab_env_${BOARD}.yaml"
               ENV_FILE="/workspace/phase2_test/lab_env_${BOARD}.yaml"
-              TEST_FILE="/workspace/phase2_test/tests/test_${BOARD}_telemetry.py"
+              TEST_FILE="/workspace/phase2_test/tests/test_a210_telemetry.py"
             elif [ -f "/home/puneetha/phase2_test/lab_env_${BOARD}.yaml" ]; then
               echo "[Fallback] Using host environment: /home/puneetha/phase2_test/lab_env_${BOARD}.yaml"
               ENV_FILE="/home/puneetha/phase2_test/lab_env_${BOARD}.yaml"
-              TEST_FILE="/home/puneetha/phase2_test/tests/test_${BOARD}_telemetry.py"
+              TEST_FILE="/home/puneetha/phase2_test/tests/test_a210_telemetry.py"
             fi
           fi
           

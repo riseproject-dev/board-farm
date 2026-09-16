@@ -1,0 +1,14 @@
+targets:
+  main:
+    resources:
+      RemotePlace:
+        name: "a210-board-05"
+    drivers:
+      SSHDriver:
+        keyfile: "/root/.ssh/id_ed25519"
+
+roles:
+  main:
+    - main
+  a210-board-05:
+    - main
