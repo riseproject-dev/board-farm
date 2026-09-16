@@ -419,3 +419,35 @@ If GitHub invalidates registration:
     gha-runner:latest
 "
 ```
+
+---
+
+## 8. Remote Fastboot & Flashing Automation (`enter_fastboot.py`)
+
+The A210 platform uses **Android Fastboot** (over UDP/Ethernet or USB gadget) rather than USB DFU for low-level image deployment and flashing.
+
+The helper script `experiment/osu_osl/scripts/enter_fastboot.py` automates placing any of the 5 cluster boards into Fastboot mode via serial console interception and restoring them safely back to Linux.
+
+### 8.1 Key Capabilities & Design
+- **No Physical Remote Relays Needed**: As long as U-Boot or Linux is responsive, boards can be soft-rebooted into Fastboot UDP without physical button presses or relay hardware.
+- **Fastboot UDP over Subnet**: Runs directly over the 10.6.4.0/24 rack switch on UDP port 5554.
+- **Fail-Safe Restoration**: On `Ctrl+C` (SIGINT) or with the `--reboot` flag, the script cleanly issues `boot` to return the board to persistent Debian Linux.
+
+### 8.2 Usage Examples
+
+```bash
+# 1. Non-destructive probe: Enters fastboot UDP, runs 'getvar all', and reboots to Linux
+python3 experiment/osu_osl/scripts/enter_fastboot.py --board a210-board-05 --probe
+
+# 2. Interactive Fastboot UDP session (stays listening until Ctrl+C):
+python3 experiment/osu_osl/scripts/enter_fastboot.py --board a210-board-05
+
+# In another terminal while active:
+fastboot -s udp:10.6.4.16:5554 getvar all
+fastboot -s udp:10.6.4.16:5554 flash boot_a boot.img
+fastboot -s udp:10.6.4.16:5554 reboot
+
+# 3. Emergency restore: Force a board sitting in U-Boot or Fastboot back to Linux
+python3 experiment/osu_osl/scripts/enter_fastboot.py --board a210-board-05 --reboot
+```
+
