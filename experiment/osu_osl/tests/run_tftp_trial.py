@@ -32,6 +32,22 @@ def parse_args():
         default="a210-board-02",
         help="Target A210 board to netboot",
     )
+    parser.add_argument(
+        "--image",
+        default="Image",
+        help="Kernel image filename on TFTP server (default: Image)",
+    )
+    parser.add_argument(
+        "--dtb",
+        default="a210-dev.dtb",
+        help="Device tree filename on TFTP server (default: a210-dev.dtb)",
+    )
+    parser.add_argument(
+        "--rootfs",
+        choices=["ram", "emmc"],
+        default="ram",
+        help="Root filesystem type: 'ram' (installer.cpio.gz) or 'emmc' (/dev/mmcblk0p4) (default: ram)",
+    )
     return parser.parse_args()
 
 args = parse_args()
@@ -159,39 +175,48 @@ def main():
     send_uboot_cmd(ser, f"setenv serverip {SERVER_IP}", timeout=5)
 
     # Step 4: TFTP Downloads
+    total_steps = 2 if args.rootfs == "emmc" else 3
     print("\n--- [Phase 3B] TFTP Artifact Transfers ---", flush=True)
-    print("[Host] 1/3: Transferring kernel (Image)...", flush=True)
-    ok, buf = send_uboot_cmd(ser, "tftpboot ${kernel_addr} Image", timeout=45)
+    print(f"[Host] 1/{total_steps}: Transferring kernel ({args.image})...", flush=True)
+    ok, buf = send_uboot_cmd(ser, f"tftpboot ${{kernel_addr}} {args.image}", timeout=60)
     if not ok or "Bytes transferred" not in buf:
-        print("[Host Error] TFTP transfer of Image failed!", flush=True)
+        print(f"[Host Error] TFTP transfer of {args.image} failed!", flush=True)
         ser.close()
         return 1
 
-    print("[Host] 2/3: Transferring device tree (a210-dev.dtb)...", flush=True)
-    ok, buf = send_uboot_cmd(ser, "tftpboot ${dtb_addr} a210-dev.dtb", timeout=20)
+    print(f"[Host] 2/{total_steps}: Transferring device tree ({args.dtb})...", flush=True)
+    ok, buf = send_uboot_cmd(ser, f"tftpboot ${{dtb_addr}} {args.dtb}", timeout=30)
     if not ok or "Bytes transferred" not in buf:
-        print("[Host Error] TFTP transfer of a210-dev.dtb failed!", flush=True)
+        print(f"[Host Error] TFTP transfer of {args.dtb} failed!", flush=True)
         ser.close()
         return 1
 
-    print("[Host] 3/3: Transferring initramfs (installer.cpio.gz)...", flush=True)
-    ok, buf = send_uboot_cmd(ser, "tftpboot ${initrd_addr} installer.cpio.gz", timeout=45)
-    if not ok or "Bytes transferred" not in buf:
-        print("[Host Error] TFTP transfer of installer.cpio.gz failed!", flush=True)
-        ser.close()
-        return 1
+    if args.rootfs == "ram":
+        print(f"[Host] 3/{total_steps}: Transferring initramfs (installer.cpio.gz)...", flush=True)
+        ok, buf = send_uboot_cmd(ser, "tftpboot ${initrd_addr} installer.cpio.gz", timeout=45)
+        if not ok or "Bytes transferred" not in buf:
+            print("[Host Error] TFTP transfer of installer.cpio.gz failed!", flush=True)
+            ser.close()
+            return 1
 
-    # Step 5: Booting in RAM (Option A: Safe RAM Boot, zero disk write)
-    print("\n--- [Phase 4] Booting Kernel & Initramfs into RAM (Option A) ---", flush=True)
-    bootargs = "console=ttyS4,115200 earlycon clk_ignore_unused panic=30"
-    send_uboot_cmd(ser, f"setenv bootargs '{bootargs}'", timeout=5)
-
-    print("[Host] Executing booti ${kernel_addr} ${initrd_addr}:${filesize} ${dtb_addr}...", flush=True)
-    ser.write(b"booti ${kernel_addr} ${initrd_addr}:${filesize} ${dtb_addr}\n")
+    # Step 5: Booting Kernel
+    if args.rootfs == "emmc":
+        print("\n--- [Phase 4] Booting Kernel into eMMC Rootfs (/dev/mmcblk0p4) ---", flush=True)
+        bootargs = "console=ttyS4,115200 root=/dev/mmcblk0p4 rw rootwait earlycon clk_ignore_unused panic=30 loglevel=4"
+        send_uboot_cmd(ser, f"setenv bootargs '{bootargs}'", timeout=5)
+        print(f"[Host] Executing booti ${{kernel_addr}} - ${{dtb_addr}}...", flush=True)
+        ser.write(b"booti ${kernel_addr} - ${dtb_addr}\n")
+    else:
+        print("\n--- [Phase 4] Booting Kernel & Initramfs into RAM (Option A) ---", flush=True)
+        bootargs = "console=ttyS4,115200 earlycon clk_ignore_unused panic=30"
+        send_uboot_cmd(ser, f"setenv bootargs '{bootargs}'", timeout=5)
+        print("[Host] Executing booti ${kernel_addr} ${initrd_addr}:${filesize} ${dtb_addr}...", flush=True)
+        ser.write(b"booti ${kernel_addr} ${initrd_addr}:${filesize} ${dtb_addr}\n")
 
     print("\n--- [Phase 4 Console Stream] Monitoring Kernel Boot Output ---", flush=True)
     boot_start = time.time()
-    while time.time() - boot_start < 45:
+    monitor_duration = 75 if args.rootfs == "emmc" else 45
+    while time.time() - boot_start < monitor_duration:
         data = ser.read(ser.in_waiting or 1)
         if data:
             chunk = data.decode("latin1", errors="replace")
@@ -199,7 +224,7 @@ def main():
             sys.stdout.flush()
 
     print("\n\n============================================================")
-    print("[Host] RAM Netboot Stream Completed Successfully!")
+    print(f"[Host] {BOARD_NAME} TFTP Netboot Stream Completed Successfully!")
     print("============================================================", flush=True)
     ser.close()
     return 0
