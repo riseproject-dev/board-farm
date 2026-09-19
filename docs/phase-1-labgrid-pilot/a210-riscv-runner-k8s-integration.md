@@ -255,12 +255,27 @@ To avoid overloading lab infrastructure, the kernel was cross-compiled on the 96
    - Kernel Image: `arch/riscv/boot/Image` (29 MB, contains `vxlan_init` and `udp_tunnel_update_gro_rcv`)
    - Kernel Modules: `/lib/modules/7.2.3-osl+/` (vermagic matches live board: `7.2.3-osl+ SMP preempt mod_unload riscv`)
 
-### 5.4 Kernel Deployment Strategy
-On the A210 board, the boot partition is stored on eMMC partition 3:
-- Partition: `/dev/mmcblk0p3` (256 MB, ext4)
-- Files: `/mnt/boot/Image` and `/mnt/boot/a210-dev.dtb`
+### 5.4 Live Kernel Deployment via Labgrid TFTP Netboot
+Rather than modifying the on-board eMMC boot partition (`/dev/mmcblk0p3`), the new kernel was deployed using the Labgrid TFTP Netboot workflow developed during Phase 1:
 
-Replacing `Image` on `/dev/mmcblk0p3` is safe and non-destructive: it does not touch the U-Boot SPL or BROM, and the original kernel can be backed up as `Image.stock.bak`.
+1. **TFTP Staging**:
+   The cross-compiled kernel was copied to `/var/lib/tftpboot/Image.vxlan` on `labgrid.bak.milne.osuosl.org` (`10.6.4.11`).
+2. **Persistent Rootfs Netbooting**:
+   The netboot automation script (`run_tftp_trial.py`) was enhanced to boot directly into the existing eMMC Debian root filesystem without requiring an installer ramdisk:
+   ```bash
+   # Configured U-Boot bootargs:
+   console=ttyS4,115200 root=/dev/mmcblk0p4 rw rootwait earlycon clk_ignore_unused panic=30 loglevel=4
+
+   # U-Boot boot execution:
+   booti ${kernel_addr} - ${dtb_addr}
+   ```
+3. **Execution & Verification**:
+   - `run_tftp_trial.py --board a210-board-05 --image Image.vxlan --rootfs emmc` interrupted the U-Boot prompt on `/dev/ttyUSB4`, fetched `Image.vxlan` and `a210-dev.dtb` over TFTP into RAM, and executed `booti`.
+   - The board booted seamlessly into Debian 12 on `/dev/mmcblk0p4`.
+   - Kernel verification: `uname -a` confirmed `7.2.3-osl+` with `CONFIG_VXLAN=y`.
+   - Flannel CNI pod (`kube-flannel-ds-hm4j9`) transitioned immediately to **Running**.
+   - The `flannel.1` VXLAN overlay interface initialized with subnet `10.244.29.0/32`.
+   - The Kubernetes node `a210-board-05` transitioned to **`Ready`**!
 
 ---
 
@@ -272,24 +287,19 @@ Replacing `Image` on `/dev/mmcblk0p3` is safe and non-destructive: it does not t
 | `a210-board-02` | Zhihe A210 (2x C920) | `10.6.4.13` | `/dev/ttyUSB1` | Debian 12 (7.2.3) | Unregistered | Pending | Pending | Standby / Labgrid |
 | `a210-board-03` | Zhihe A210 (2x C920) | `10.6.4.14` | `/dev/ttyUSB2` | Debian 12 (7.2.3) | Unregistered | Pending | Pending | Standby / Labgrid |
 | `a210-board-04` | Zhihe A210 (2x C920) | `10.6.4.15` | `/dev/ttyUSB3` | Debian 12 (7.2.3) | Unregistered | Pending | Pending | Standby / Labgrid |
-| **`a210-board-05`** | **Zhihe A210 (2x C920)** | **`10.6.4.16`** | **`/dev/ttyUSB4`** | **Debian 12 (7.2.3-osl+)** | **Joined (Tainted)** | **Pending Kernel Reboot** | **PR Submitted** | **Python Wheel Pilot** |
+| **`a210-board-05`** | **Zhihe A210 (2x C920)** | **`10.6.4.16`** | **`/dev/ttyUSB4`** | **Debian 12 (7.2.3-osl+ VXLAN)** | **Joined & `Ready` (Tainted)** | **Running (`flannel.1`)** | **PR Submitted** | **Python Wheel Pilot** |
 
 ---
 
 ## 7. Next Steps & Ongoing Plan
 
-1. **Deploy Compiled Kernel to `a210-board-05`**:
-   - Stage `Image` to `/dev/mmcblk0p3` on `a210-board-05`.
-   - Sync updated kernel modules to `/lib/modules/7.2.3-osl+/`.
-   - Issue reboot and verify `vxlan0` initialization.
-2. **Verify Flannel Overlay & Node Readiness**:
-   - Check that `kube-flannel-ds` enters `Running`.
-   - Verify node transition from `NotReady` to `Ready`.
-3. **Deploy RISE Device Plugin DaemonSet**:
-   - Apply the updated device plugin image from `device-plugin-zhihe-a210` PR.
-   - Confirm node reports capacity `riseproject.dev/zhihe-a210: 1`.
-4. **Execute End-to-End Pilot Workload**:
+1. **Deploy RISE Device Plugin DaemonSet**:
+   - Apply updated device plugin container image built from branch `device-plugin-zhihe-a210` (featuring CPU 0 `riscv_hwprobe` fallback).
+   - Confirm `a210-board-05` advertises allocatable capacity `riseproject.dev/zhihe-a210: 1`.
+2. **Execute End-to-End Pilot Workload**:
    - Run a test Python wheel build pod requesting `riseproject.dev/zhihe-a210: 1` and tolerating the `unmanaged` taint.
    - Validate performance and stability under multi-threaded compilation.
-5. **Scale to Remaining Boards**:
+3. **Persist Kernel to eMMC Boot Partition (Optional)**:
+   - Now that `Image.vxlan` is 100% verified live, copy it to `/dev/mmcblk0p3` as `/mnt/boot/Image` for autonomous boot without serial intervention.
+4. **Scale to Remaining Boards**:
    - Apply the standardized kernel image and Debian Ansible playbooks across `a210-board-01` through `a210-board-04`.
