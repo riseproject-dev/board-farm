@@ -58,10 +58,10 @@ jobs:
               echo "[Fallback] Using mounted environment: /workspace/phase2_test/lab_env_${BOARD}.yaml"
               ENV_FILE="/workspace/phase2_test/lab_env_${BOARD}.yaml"
               TEST_FILE="/workspace/phase2_test/tests/test_a210_telemetry.py"
-            elif [ -f "/home/puneetha/phase2_test/lab_env_${BOARD}.yaml" ]; then
-              echo "[Fallback] Using host environment: /home/puneetha/phase2_test/lab_env_${BOARD}.yaml"
-              ENV_FILE="/home/puneetha/phase2_test/lab_env_${BOARD}.yaml"
-              TEST_FILE="/home/puneetha/phase2_test/tests/test_a210_telemetry.py"
+            elif [ -f "${PHASE2_TEST_DIR:-$HOME/phase2_test}/lab_env_${BOARD}.yaml" ]; then
+              echo "[Fallback] Using host environment: ${PHASE2_TEST_DIR:-$HOME/phase2_test}/lab_env_${BOARD}.yaml"
+              ENV_FILE="${PHASE2_TEST_DIR:-$HOME/phase2_test}/lab_env_${BOARD}.yaml"
+              TEST_FILE="${PHASE2_TEST_DIR:-$HOME/phase2_test}/tests/test_a210_telemetry.py"
             fi
           fi
           

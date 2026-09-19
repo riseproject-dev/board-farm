@@ -1,0 +1,13 @@
+# Ignore OpenVPN client profiles, credentials, and certificates
+*.ovpn
+*.key
+*.crt
+*.p12
+*.pem
+*secret*
+
+# Ignore temporary runtime logs and test output
+*.log
+results.xml
+__pycache__/
+*.pyc

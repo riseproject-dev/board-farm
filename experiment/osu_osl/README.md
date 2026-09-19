@@ -19,7 +19,7 @@ This guide documents the architecture, installation, configuration, operational 
  │    ├── Runner Labels: [self-hosted, board-farm-controller, a210]       │
  │    ├── Networking: --net host (native rack IP access)                  │
  │    ├── Tooling: Python 3.12, Labgrid 26.0, Pytest 9.1                  │
- │    └── Mounted Credentials: /home/puneetha/.ssh/id_ed25519 (read-only) │
+ │    └── Mounted Credentials: $HOME/.ssh/id_ed25519 (read-only) │
  │                                                                        │
  │  Native Systemd Services:                                              │
  │    ├── labgrid-coordinator.service (Port 20408)                        │
@@ -41,15 +41,15 @@ This guide documents the architecture, installation, configuration, operational 
 
 ## 2. Directory & File Layout on Controller Host
 
-On `labgrid.bak.milne.osuosl.org` (`10.6.4.11`), the runner files reside in `/home/puneetha/gha-runner`:
+On `labgrid.bak.milne.osuosl.org` (`10.6.4.11`), the runner files reside in `~/gha-runner` (or `/home/<username>/gha-runner`):
 
 ```text
-/home/puneetha/gha-runner/
+~/gha-runner/
 ├── Dockerfile          # Builds Ubuntu 24.04 + Python venv + Labgrid + Actions Runner
 └── entrypoint.sh       # Handles runner registration, SSH configs, and execution
 ```
 
-### 2.1. Dockerfile (`/home/puneetha/gha-runner/Dockerfile`)
+### 2.1. Dockerfile (`~/gha-runner/Dockerfile`)
 
 ```dockerfile
 FROM ubuntu:24.04
@@ -94,7 +94,7 @@ RUN chmod +x /runner/entrypoint.sh
 ENTRYPOINT ["/runner/entrypoint.sh"]
 ```
 
-### 2.2. Entrypoint Script (`/home/puneetha/gha-runner/entrypoint.sh`)
+### 2.2. Entrypoint Script (`~/gha-runner/entrypoint.sh`)
 
 ```bash
 #!/usr/bin/env bash
@@ -120,10 +120,13 @@ Host 10.6.4.*
     IdentityFile /root/.ssh/id_ed25519
 SSHCFG
 
-mkdir -p /home/puneetha/.ssh
-if [ -f /root/.ssh/id_ed25519 ]; then
-    cp -f /root/.ssh/id_ed25519 /home/puneetha/.ssh/id_ed25519 2>/dev/null || true
-    chmod 600 /home/puneetha/.ssh/id_ed25519 2>/dev/null || true
+# Ensure user SSH credentials directory exists if running as user
+if [ -n "${RUNNER_USER:-}" ]; then
+    mkdir -p "/home/${RUNNER_USER}/.ssh"
+    if [ -f /root/.ssh/id_ed25519 ]; then
+        cp -f /root/.ssh/id_ed25519 "/home/${RUNNER_USER}/.ssh/id_ed25519" 2>/dev/null || true
+        chmod 600 "/home/${RUNNER_USER}/.ssh/id_ed25519" 2>/dev/null || true
+    fi
 fi
 
 if [ -n "$REPO" ] && [ -n "$TOKEN" ]; then
@@ -155,7 +158,7 @@ Select **Linux ➔ x64**, and copy the token string from the `./config.sh` snipp
 ### Step 2: Build the Container Image
 On `labgrid.bak.milne.osuosl.org`:
 ```bash
-sudo docker build -t gha-runner:latest /home/puneetha/gha-runner
+sudo docker build -t gha-runner:latest ~/gha-runner
 ```
 
 ### Step 3: Launch the Runner Daemon
@@ -169,8 +172,8 @@ sudo docker run -d \
   -e RUNNER_NAME="board-farm-qemu-runner" \
   -e RUNNER_LABELS="self-hosted,board-farm-controller,a210" \
   -e LG_CROSSBAR="ws://127.0.0.1:20408/ws" \
-  -v /home/puneetha/.ssh:/root/.ssh:ro \
-  -v /home/puneetha/phase2_test:/workspace/phase2_test \
+  -v $HOME/.ssh:/root/.ssh:ro \
+  -v ${PHASE2_TEST_DIR:-$HOME/phase2_test}:/workspace/phase2_test \
   gha-runner:latest
 ```
 
@@ -189,7 +192,7 @@ Current runner version: '2.337.0'
 
 ## 4. GitHub Actions Workflow Configuration
 
-The workflow is stored in the repository at [`.github/workflows/a210_telemetry.yml`](file:///usr/local/google/home/puneetha/RISE/git-repo/board-farm/.github/workflows/a210_telemetry.yml):
+The workflow is stored in the repository at [`.github/workflows/a210_telemetry.yml`](../../.github/workflows/a210_telemetry.yml):
 
 ```yaml
 name: A210 Hardware Telemetry Test (OSU OSL)
@@ -246,10 +249,10 @@ jobs:
               echo "[Fallback] Using mounted environment: /workspace/phase2_test/lab_env_${BOARD}.yaml"
               ENV_FILE="/workspace/phase2_test/lab_env_${BOARD}.yaml"
               TEST_FILE="/workspace/phase2_test/tests/test_${BOARD}_telemetry.py"
-            elif [ -f "/home/puneetha/phase2_test/lab_env_${BOARD}.yaml" ]; then
-              echo "[Fallback] Using host environment: /home/puneetha/phase2_test/lab_env_${BOARD}.yaml"
-              ENV_FILE="/home/puneetha/phase2_test/lab_env_${BOARD}.yaml"
-              TEST_FILE="/home/puneetha/phase2_test/tests/test_${BOARD}_telemetry.py"
+            elif [ -f "${PHASE2_TEST_DIR:-$HOME/phase2_test}/lab_env_${BOARD}.yaml" ]; then
+              echo "[Fallback] Using host environment: ${PHASE2_TEST_DIR:-$HOME/phase2_test}/lab_env_${BOARD}.yaml"
+              ENV_FILE="${PHASE2_TEST_DIR:-$HOME/phase2_test}/lab_env_${BOARD}.yaml"
+              TEST_FILE="${PHASE2_TEST_DIR:-$HOME/phase2_test}/tests/test_${BOARD}_telemetry.py"
             fi
           fi
           
@@ -272,7 +275,7 @@ jobs:
 
 ### 4.2. TFTP Netboot Workflow (`a210_netboot.yml`)
 
-The TFTP Netboot workflow is stored at [`.github/workflows/a210_netboot.yml`](file:///usr/local/google/home/puneetha/RISE/git-repo/board-farm/.github/workflows/a210_netboot.yml). It executes the automated in-memory RAM netboot pipeline (`run_tftp_trial.py`) over U-Boot:
+The TFTP Netboot workflow is stored at [`.github/workflows/a210_netboot.yml`](../../.github/workflows/a210_netboot.yml). It executes the automated in-memory RAM netboot pipeline (`run_tftp_trial.py`) over U-Boot:
 
 ```yaml
 name: A210 TFTP RAM Netboot (OSU OSL)
@@ -319,7 +322,7 @@ jobs:
 
 ### 4.3. Native Labgrid UBoot TFTP Workflow (`a210_labgrid_uboot.yml`)
 
-The Native Labgrid UBoot Netboot workflow is stored at [`.github/workflows/a210_labgrid_uboot.yml`](file:///usr/local/google/home/puneetha/RISE/git-repo/board-farm/.github/workflows/a210_labgrid_uboot.yml). It uses Labgrid's native `UBootDriver` and `ExternalPowerDriver` (`ssh root@<IP> reboot`) to execute Pytest hardware netbooting:
+The Native Labgrid UBoot Netboot workflow is stored at [`.github/workflows/a210_labgrid_uboot.yml`](../../.github/workflows/a210_labgrid_uboot.yml). It uses Labgrid's native `UBootDriver` and `ExternalPowerDriver` (`ssh root@<IP> reboot`) to execute Pytest hardware netbooting:
 
 ```yaml
 name: A210 Labgrid Native UBoot Netboot (OSU OSL)
@@ -414,8 +417,8 @@ If GitHub invalidates registration:
     -e RUNNER_NAME='board-farm-qemu-runner' \
     -e RUNNER_LABELS='self-hosted,board-farm-controller,a210' \
     -e LG_CROSSBAR='ws://127.0.0.1:20408/ws' \
-    -v /home/puneetha/.ssh:/root/.ssh:ro \
-    -v /home/puneetha/phase2_test:/workspace/phase2_test \
+    -v $HOME/.ssh:/root/.ssh:ro \
+    -v ${PHASE2_TEST_DIR:-$HOME/phase2_test}:/workspace/phase2_test \
     gha-runner:latest
 "
 ```
@@ -451,3 +454,53 @@ fastboot -s udp:10.6.4.16:5554 reboot
 python3 experiment/osu_osl/scripts/enter_fastboot.py --board a210-board-05 --reboot
 ```
 
+
+---
+
+## 9. Developer & Operator Tooling
+
+The scripts in `experiment/osu_osl/` allow operators to connect to the lab, manage OpenVPN tunnels, access boards over serial/SSH, and run hardware test suites.
+
+### 9.1. SSH Wrapper (`ssh-osu.sh`)
+Connects to the Labgrid controller host or target boards through the SOCKS5 proxy:
+
+```bash
+# Interactive shell on labgrid controller:
+./ssh-osu.sh labgrid
+
+# Execute command on board 05 (10.6.4.16):
+./ssh-osu.sh a210-5 "uptime"
+
+# Targets supported:
+#   labgrid               -> 10.6.4.11 (User: $OSU_SSH_USER)
+#   a210-1 ... a210-5     -> 10.6.4.12 ... 10.6.4.16 (User: root)
+#   <ip> or user@<ip>     -> Direct IP connection
+```
+
+#### Environment Variables:
+- `OSU_SSH_USER`: Username on the controller host (default: `$USER`).
+- `OSU_SSH_KEY`: Path to private SSH key (default: auto-detects `~/.ssh/id_ed25519`, `~/.ssh/id_rsa`, or `~/.ssh/github_ed25519`).
+- `OSU_SOCKS5_PROXY`: SOCKS5 proxy endpoint (default: `127.0.0.1:1080`, set to `none` if on a direct VPN connection).
+
+### 9.2. Isolated OpenVPN & SOCKS5 Client (`vpn-start.sh`, `vpn-status.sh`, `vpn-stop.sh`)
+Runs OpenVPN in an isolated container with an embedded Dante SOCKS5 proxy on `127.0.0.1:1080`:
+
+```bash
+# Start VPN container (uses OSU_VPN_CONFIG or auto-detects client.ovpn):
+./vpn-start.sh
+
+# Check tunnel status and target connectivity (gateway, controller, boards 01-05):
+./vpn-status.sh
+
+# Stop VPN container:
+./vpn-stop.sh
+```
+
+#### Environment Variables:
+- `OSU_VPN_CONFIG`: Absolute path to your `.ovpn` configuration file (default: `client.ovpn` or any single `.ovpn` file in the directory).
+
+### 9.3. Test & Execution Scripts
+- **`tests/run_phase2c.sh`**: Runs Phase 2C non-destructive hardware telemetry via Labgrid `SSHDriver`. Supports setting `REMOTE_TEST_DIR`.
+- **`tests/tftp_execute.py`**: Executes an automated in-memory RAM netboot over U-Boot serial console (`--port`, `--server-ip`, or `A210_SERIAL_PORT`, `TFTP_SERVER_IP`).
+- **`tests/test_a210_netboot.py`**: Native Pytest Labgrid netboot test using `UBootDriver`.
+- **`scripts/enter_fastboot.py`**: Intercepts U-Boot countdown to enter Android Fastboot UDP / USB mode. Binary search path configurable via `FASTBOOT_PATH`.

@@ -1,0 +1,15 @@
+services:
+  vpn:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: osu-vpn
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - ${OSU_VPN_CONFIG:-../client.ovpn}:/etc/openvpn/client.ovpn:ro
+    ports:
+      - "127.0.0.1:1080:1080"

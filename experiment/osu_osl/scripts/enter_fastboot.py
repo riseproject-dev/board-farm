@@ -19,6 +19,7 @@ Usage:
   python3 enter_fastboot.py --board a210-board-05 --reboot
 """
 
+import os
 import sys
 import time
 import signal
@@ -39,12 +40,16 @@ for i in range(1, 6):
     BOARD_MAP[f"a210-{i}"] = BOARD_MAP[f"a210-board-{i:02d}"]
 
 def find_fastboot_binary():
-    """Locate fastboot binary on host or local bin."""
+    """Locate fastboot binary via FASTBOOT_PATH, PATH, or local user bin."""
+    env_path = os.environ.get("FASTBOOT_PATH")
+    if env_path and (shutil.which(env_path) or os.path.isfile(env_path)):
+        return env_path
     path = shutil.which("fastboot")
     if path:
         return path
-    for candidate in ["/home/puneetha/bin/fastboot", "/usr/local/bin/fastboot", "/usr/bin/fastboot"]:
-        if shutil.which(candidate):
+    user_bin = os.path.expanduser("~/bin/fastboot")
+    for candidate in [user_bin, "/usr/local/bin/fastboot", "/usr/bin/fastboot"]:
+        if shutil.which(candidate) or os.path.isfile(candidate):
             return candidate
     return None
 
