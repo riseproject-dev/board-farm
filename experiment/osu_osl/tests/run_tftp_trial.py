@@ -76,8 +76,15 @@ def trigger_reboot(ser):
     except Exception as e:
         print(f"[Host Note] SSH reboot result: {e}", flush=True)
 
-    # Serial fallback: trigger reset over serial line if target is in initramfs shell or u-boot
+    # Serial fallback: trigger sysrq break reset or u-boot reset
     try:
+        try:
+            ser.send_break(0.5)
+            time.sleep(0.1)
+            ser.write(b"b")
+            time.sleep(0.2)
+        except Exception:
+            pass
         ser.write(b"\nreset\nreboot -f\n")
     except Exception:
         pass
@@ -120,7 +127,7 @@ def main():
     print(f" Server: {SERVER_IP}")
     print(f"============================================================", flush=True)
 
-    ser = serial.Serial(PORT, BAUD, timeout=0.1)
+    ser = serial.Serial(PORT, BAUD, timeout=0.1, rtscts=False, dsrdtr=False)
     ser.reset_input_buffer()
 
     # Step 1: Reboot in background thread

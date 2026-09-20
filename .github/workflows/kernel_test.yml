@@ -1,0 +1,86 @@
+name: Phase 1 Labgrid Pilot Kernel Test (QEMU Experiment)
+
+on:
+  workflow_dispatch:
+    inputs:
+      machine:
+        description: Target machine/role to test on
+        required: true
+        default: 'qemu-board-01'
+        type: string
+  issue_comment:
+    types: [created]
+
+jobs:
+  build:
+    name: Download Official RISC-V 64 Kernel Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Official Debian DQIB RISC-V 64 Kernel Image
+        run: |
+          chmod +x experiment/gha-test/download-image.sh
+          ./experiment/gha-test/download-image.sh riscv64
+
+      - name: Upload Kernel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-image
+          path: /tmp/tftp/qemu-board/fitImage
+
+  test-hw:
+    name: Boot & Test Kernel via Labgrid
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.comment && startsWith(github.event.comment.body, '/run-kernel-tests'))
+    needs: build
+    runs-on: [self-hosted, board-farm-controller]
+    concurrency:
+      group: board-farm-${{ inputs.machine || 'qemu-board-01' }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Kernel Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: kernel-image
+          path: /tmp/tftp/qemu-board/
+
+      - name: Execute Hardware Test Suite
+        run: |
+          ENV_FILE="experiment/gha-test/lab_env.yaml"
+          TEST_FILE="experiment/gha-test/tests/test_kernel.py"
+
+          if [ ! -f "$ENV_FILE" ]; then
+            if [ -f "/workspace/lab_env.yaml" ]; then
+              echo "[Notice] Falling back to mounted /workspace/lab_env.yaml"
+              ENV_FILE="/workspace/lab_env.yaml"
+              TEST_FILE="/workspace/tests/test_kernel.py"
+            elif [ -f "/workspace/$ENV_FILE" ]; then
+              echo "[Notice] Falling back to mounted /workspace/$ENV_FILE"
+              ENV_FILE="/workspace/$ENV_FILE"
+              TEST_FILE="/workspace/$TEST_FILE"
+            fi
+          fi
+
+          export LG_CROSSBAR="ws://127.0.0.1:20408/ws"
+          eval $(labgrid-client reserve --shell --wait board=qemu-riscv64)
+          echo "[GHA Workflow] Dynamically reserved board place '$LG_PLACE' (Token: $LG_TOKEN)"
+          labgrid-client -p "$LG_PLACE" acquire || true
+          /opt/venv/bin/pytest -s \
+            --lg-env="$ENV_FILE" \
+            --junitxml=results.xml \
+            "$TEST_FILE"
+          labgrid-client -p "$LG_PLACE" release || true
+          labgrid-client cancel-reservation "$LG_TOKEN" || true
+
+      - name: Upload Test Results Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-xml
+          path: results.xml

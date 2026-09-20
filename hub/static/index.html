@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RISE OSU-OSL Board Farm Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#22c55e',
+              600: '#16a34a',
+              900: '#14532d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.95); }
+    }
+    .pulse-dot { animation: pulse-slow 2s infinite ease-in-out; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans antialiased">
+  <div id="app" class="flex-1 flex flex-col">
+    <!-- Navbar -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-4">
+      <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+            <i class="fa-solid fa-microchip text-slate-950 text-xl font-bold"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h1 class="text-xl font-bold tracking-tight text-white">RISE Board Farm Hub</h1>
+              <span class="px-2 py-0.5 text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Live</span>
+            </div>
+            <p class="text-xs text-slate-400">OSU OSL RISC-V Test Cluster &bull; Labgrid & Kubernetes</p>
+          </div>
+        </div>
+
+        <!-- Connection and Cluster Summary -->
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs">
+            <span class="w-2 h-2 rounded-full pulse-dot" :class="sseConnected ? 'bg-emerald-400 shadow-sm shadow-emerald-400' : 'bg-rose-500'"></span>
+            <span class="text-slate-300 font-medium">{{ sseConnected ? 'Stream Active' : 'Connecting...' }}</span>
+          </div>
+
+          <div class="px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs flex items-center space-x-2">
+            <i class="fa-solid fa-server text-cyan-400"></i>
+            <span class="text-slate-400">Coordinator:</span>
+            <span class="text-slate-200 font-mono font-medium">{{ coordinatorStatus }}</span>
+          </div>
+
+          <div class="px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 text-xs flex items-center space-x-2">
+            <i class="fa-solid fa-circle-check text-emerald-400"></i>
+            <span class="text-slate-200 font-semibold">{{ onlineCount }} / {{ boards.length }}</span>
+            <span class="text-slate-400">Online</span>
+          </div>
+
+          <button @click="triggerRefresh" :disabled="refreshing" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-medium transition flex items-center space-x-1.5 shadow-sm">
+            <i class="fa-solid fa-arrows-rotate" :class="{ 'fa-spin': refreshing }"></i>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+      
+      <!-- Cluster Notice / Quick Stats Banner -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Cluster Nodes</div>
+            <div class="text-2xl font-bold text-white mt-1">5 <span class="text-sm font-normal text-slate-400">Zhihe A210</span></div>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300">
+            <i class="fa-solid fa-cubes text-lg"></i>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Labgrid Reservations</div>
+            <div class="text-2xl font-bold mt-1" :class="acquiredCount > 0 ? 'text-amber-400' : 'text-emerald-400'">
+              {{ acquiredCount }} <span class="text-sm font-normal text-slate-400">Acquired ({{ idleCount }} Idle)</span>
+            </div>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center" :class="acquiredCount > 0 ? 'text-amber-400' : 'text-emerald-400'">
+            <i class="fa-solid fa-lock text-lg"></i>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Kubernetes Workers</div>
+            <div class="text-2xl font-bold text-purple-400 mt-1">
+              1 <span class="text-sm font-normal text-slate-400">Ready (Flannel VXLAN)</span>
+            </div>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            <i class="fa-solid fa-dharmachakra text-lg"></i>
+          </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Lifetime Boots</div>
+            <div class="text-2xl font-bold text-cyan-400 mt-1">
+              {{ totalLifetimeBoots }} <span class="text-sm font-normal text-slate-400">Cycles Detected</span>
+            </div>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+            <i class="fa-solid fa-bolt text-lg"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- Boards Cards Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div v-for="b in boards" :key="b.name" 
+             class="bg-slate-900 border rounded-2xl p-5 flex flex-col justify-between transition-all duration-200 hover:shadow-xl hover:border-slate-700"
+             :class="b.is_k8s_worker ? 'border-purple-500/40 shadow-purple-500/5' : 'border-slate-800'">
+          
+          <div>
+            <!-- Card Header -->
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="flex items-center space-x-2">
+                  <h3 class="text-lg font-bold text-white tracking-tight">{{ b.name }}</h3>
+                  <span class="px-2 py-0.5 text-xs font-semibold rounded bg-slate-800 text-slate-300 font-mono">{{ b.short_name }}</span>
+                </div>
+                <div class="flex items-center space-x-3 text-xs text-slate-400 mt-1 font-mono">
+                  <span><i class="fa-solid fa-network-wired mr-1 text-slate-500"></i>{{ b.ip_address }}</span>
+                  <span><i class="fa-solid fa-terminal mr-1 text-slate-500"></i>{{ b.serial_port }}</span>
+                </div>
+              </div>
+
+              <!-- Status Badge -->
+              <div>
+                <span v-if="!b.is_online" class="px-2.5 py-1 text-xs font-bold rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                  <i class="fa-solid fa-circle-xmark mr-1"></i>Offline
+                </span>
+                <span v-else-if="b.status === 'acquired'" class="px-2.5 py-1 text-xs font-bold rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <i class="fa-solid fa-lock mr-1"></i>Acquired ({{ b.acquired_by || 'busy' }})
+                </span>
+                <span v-else class="px-2.5 py-1 text-xs font-bold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <i class="fa-solid fa-check mr-1"></i>Idle / Ready
+                </span>
+              </div>
+            </div>
+
+            <!-- K8s Worker Spotlight Banner -->
+            <div v-if="b.is_k8s_worker" class="mt-4 p-3 rounded-xl bg-gradient-to-r from-purple-950/60 to-indigo-950/40 border border-purple-500/30">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-bold text-purple-300 flex items-center">
+                  <i class="fa-solid fa-dharmachakra mr-1.5 text-purple-400"></i>
+                  K8s Node: <span class="ml-1 text-emerald-400">Ready</span>
+                </span>
+                <span class="text-purple-300/80 font-mono text-[11px]">{{ b.k8s_status?.flannel_ip || 'flannel.1 active' }}</span>
+              </div>
+              <div class="text-[11px] text-purple-200/70 mt-1 flex items-center space-x-2">
+                <span>Overlay: <strong class="text-white">VXLAN</strong></span>
+                <span>&bull;</span>
+                <span>Device Plugin: <strong class="text-white">zhihe-a210</strong></span>
+              </div>
+            </div>
+
+            <!-- Hardware Badges -->
+            <div class="flex flex-wrap gap-1.5 mt-4">
+              <span class="px-2 py-0.5 text-[11px] rounded bg-slate-800 text-slate-300 border border-slate-700/50">
+                <i class="fa-solid fa-microchip mr-1 text-cyan-400"></i>{{ b.soc }}
+              </span>
+              <span class="px-2 py-0.5 text-[11px] rounded bg-slate-800 text-slate-300 border border-slate-700/50">
+                <i class="fa-solid fa-memory mr-1 text-indigo-400"></i>4 GB LPDDR4x
+              </span>
+              <span class="px-2 py-0.5 text-[11px] rounded bg-slate-800 text-slate-300 border border-slate-700/50">
+                <i class="fa-solid fa-hard-drive mr-1 text-emerald-400"></i>32 GB eMMC
+              </span>
+              <span class="px-2 py-0.5 text-[11px] rounded bg-slate-800 text-slate-300 border border-slate-700/50">
+                Fastboot UDP :5554
+              </span>
+            </div>
+
+            <!-- Telemetry Metrics -->
+            <div class="mt-5 space-y-3">
+              <!-- CPU Load -->
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-400">CPU Load (1m, 5m, 15m)</span>
+                  <span class="font-mono text-slate-200 font-semibold">{{ b.load_1m?.toFixed(2) }} / {{ b.load_5m?.toFixed(2) }} / {{ b.load_15m?.toFixed(2) }}</span>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                  <div class="h-1.5 rounded-full transition-all duration-500" 
+                       :class="getLoadColor(b.load_1m)" 
+                       :style="{ width: Math.min((b.load_1m / 4.0) * 100, 100) + '%' }"></div>
+                </div>
+              </div>
+
+              <!-- RAM Usage -->
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-400">Memory Usage</span>
+                  <span class="font-mono text-slate-200">{{ b.ram_used_mb }} MB / {{ b.ram_total_mb || 3900 }} MB ({{ calcPct(b.ram_used_mb, b.ram_total_mb) }}%)</span>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                  <div class="bg-indigo-500 h-1.5 rounded-full transition-all duration-500" :style="{ width: calcPct(b.ram_used_mb, b.ram_total_mb) + '%' }"></div>
+                </div>
+              </div>
+
+              <!-- Storage Usage -->
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-400">eMMC Rootfs Storage</span>
+                  <span class="font-mono text-slate-200">{{ b.disk_used_gb?.toFixed(1) }} GB / {{ b.disk_total_gb?.toFixed(1) }} GB ({{ calcPct(b.disk_used_gb, b.disk_total_gb) }}%)</span>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                  <div class="bg-emerald-500 h-1.5 rounded-full transition-all duration-500" :style="{ width: calcPct(b.disk_used_gb, b.disk_total_gb) + '%' }"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Footer (Uptime, Kernel, Cycles) -->
+          <div class="mt-5 pt-4 border-t border-slate-800/80 space-y-2 text-xs">
+            <div class="flex items-center justify-between text-slate-400">
+              <span><i class="fa-solid fa-clock mr-1 text-slate-500"></i>Uptime:</span>
+              <span class="text-slate-300 font-mono">{{ formatUptime(b.uptime_seconds) }}</span>
+            </div>
+            <div class="flex items-center justify-between text-slate-400">
+              <span><i class="fa-brands fa-linux mr-1 text-slate-500"></i>Kernel:</span>
+              <span class="text-slate-200 font-mono text-[11px] truncate max-w-[200px]" :title="b.kernel_version">
+                {{ b.kernel_version || 'Linux 7.2.3' }}
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-slate-400">
+              <span><i class="fa-solid fa-rotate mr-1 text-slate-500"></i>Boot Cycles:</span>
+              <span class="font-mono text-cyan-400 font-semibold">
+                {{ b.lifetime_uboot_cycles || 1 }} <span class="text-slate-500 text-[10px]">lifetime</span>
+              </span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Events Log & Activity Timeline -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-list-check text-emerald-400"></i>
+            <h3 class="text-base font-bold text-white">Cluster Activity & Event Stream</h3>
+          </div>
+          <span class="text-xs text-slate-400 font-mono">Auto-updates via SSE</span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-slate-800/60 uppercase font-mono text-[10px] text-slate-400">
+              <tr>
+                <th class="py-2.5 px-3 rounded-l-lg">Time</th>
+                <th class="py-2.5 px-3">Board</th>
+                <th class="py-2.5 px-3">Type</th>
+                <th class="py-2.5 px-3 rounded-r-lg">Event Message</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/60">
+              <tr v-for="ev in events" :key="ev.id" class="hover:bg-slate-800/30">
+                <td class="py-2.5 px-3 font-mono text-slate-400 whitespace-nowrap">{{ ev.created_at }}</td>
+                <td class="py-2.5 px-3 font-semibold text-white">{{ ev.board_id || 'System' }}</td>
+                <td class="py-2.5 px-3">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase"
+                        :class="ev.event_type === 'reboot' ? 'bg-cyan-500/10 text-cyan-400' : 'bg-slate-800 text-slate-300'">
+                    {{ ev.event_type }}
+                  </span>
+                </td>
+                <td class="py-2.5 px-3 text-slate-300">{{ ev.message }}</td>
+              </tr>
+              <tr v-if="events.length === 0">
+                <td colspan="4" class="py-4 text-center text-slate-500">No events logged yet.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Quick Developer Links -->
+      <div class="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 pt-2 pb-6 border-t border-slate-900">
+        <div class="flex items-center space-x-4">
+          <span>API Endpoints:</span>
+          <a href="/api/v1/boards" target="_blank" class="hover:text-emerald-400 font-mono underline">/api/v1/boards</a>
+          <a href="/api/v1/health" target="_blank" class="hover:text-emerald-400 font-mono underline">/api/v1/health</a>
+          <a href="/metrics" target="_blank" class="hover:text-emerald-400 font-mono underline">/metrics (Prometheus)</a>
+          <a href="/api/v1/stream" target="_blank" class="hover:text-emerald-400 font-mono underline">/api/v1/stream (SSE)</a>
+        </div>
+        <div>
+          <span>RISE Project &bull; OSU Open Source Lab</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+      setup() {
+        const boards = ref([]);
+        const events = ref([]);
+        const sseConnected = ref(false);
+        const refreshing = ref(false);
+        const coordinatorStatus = ref("127.0.0.1:20408");
+
+        const onlineCount = computed(() => boards.value.filter(b => b.is_online).length);
+        const acquiredCount = computed(() => boards.value.filter(b => b.status === 'acquired').length);
+        const idleCount = computed(() => boards.value.filter(b => b.status === 'idle').length);
+        const totalLifetimeBoots = computed(() => boards.value.reduce((acc, b) => acc + (b.lifetime_uboot_cycles || 0), 0));
+
+        const fetchBoards = async () => {
+          try {
+            const res = await fetch('/api/v1/boards');
+            if (res.ok) {
+              boards.value = await res.json();
+            }
+          } catch (e) {
+            console.error("Failed to fetch boards:", e);
+          }
+        };
+
+        const fetchEvents = async () => {
+          try {
+            const res = await fetch('/api/v1/events');
+            if (res.ok) {
+              events.value = await res.json();
+            }
+          } catch (e) {
+            console.error("Failed to fetch events:", e);
+          }
+        };
+
+        const triggerRefresh = async () => {
+          refreshing.value = true;
+          try {
+            await fetch('/api/v1/refresh', { method: 'POST' });
+            await fetchBoards();
+            await fetchEvents();
+          } finally {
+            refreshing.value = false;
+          }
+        };
+
+        const setupSSE = () => {
+          const evtSource = new EventSource('/api/v1/stream');
+          evtSource.onopen = () => {
+            sseConnected.value = true;
+          };
+          evtSource.addEventListener('boards_update', (e) => {
+            try {
+              const data = JSON.parse(e.data);
+              if (data.boards) {
+                boards.value = data.boards;
+              }
+            } catch (err) {
+              console.error("SSE parse error:", err);
+            }
+          });
+          evtSource.onerror = () => {
+            sseConnected.value = false;
+          };
+        };
+
+        const calcPct = (used, total) => {
+          if (!total || total === 0) return 0;
+          return Math.min(Math.round((used / total) * 100), 100);
+        };
+
+        const getLoadColor = (load) => {
+          if (!load) return 'bg-emerald-500';
+          if (load > 3.0) return 'bg-rose-500';
+          if (load > 1.5) return 'bg-amber-500';
+          return 'bg-emerald-500';
+        };
+
+        const formatUptime = (secs) => {
+          if (!secs || secs <= 0) return 'Offline';
+          const days = Math.floor(secs / 86400);
+          const hours = Math.floor((secs % 86400) / 3600);
+          const mins = Math.floor((secs % 3600) / 60);
+          if (days > 0) return `${days}d ${hours}h ${mins}m`;
+          if (hours > 0) return `${hours}h ${mins}m`;
+          return `${mins}m`;
+        };
+
+        onMounted(() => {
+          fetchBoards();
+          fetchEvents();
+          setupSSE();
+          setInterval(fetchEvents, 10000);
+        });
+
+        return {
+          boards,
+          events,
+          sseConnected,
+          refreshing,
+          coordinatorStatus,
+          onlineCount,
+          acquiredCount,
+          idleCount,
+          totalLifetimeBoots,
+          triggerRefresh,
+          calcPct,
+          getLoadColor,
+          formatUptime,
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
