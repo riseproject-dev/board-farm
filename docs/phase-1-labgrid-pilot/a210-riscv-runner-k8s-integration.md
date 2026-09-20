@@ -277,17 +277,49 @@ Rather than modifying the on-board eMMC boot partition (`/dev/mmcblk0p3`), the n
    - The `flannel.1` VXLAN overlay interface initialized with subnet `10.244.29.0/32`.
    - The Kubernetes node `a210-board-05` transitioned to **`Ready`**!
 
+### 5.5 Permanent eMMC Boot Partition Installation & Autonomous Resilience
+
+#### The Outage & Root Cause Analysis
+During overnight operation, `a210-board-05` experienced an unexpected hardware power cycle. Because the initial TFTP netboot (`booti`) loaded the kernel purely into volatile RAM, U-Boot defaulted back to its standard autonomous boot source: the on-board eMMC boot partition (`/dev/mmcblk0p3`).
+
+However, partition 3 still held the stock vendor kernel (`7.2.3-osl+ #4`). When systemd booted this kernel, it attempted to load `binfmt_misc.ko` from `/lib/modules/7.2.3-osl+/`. Because the modules had been updated during our earlier module installation, an ABI struct mismatch occurred, triggering a kernel Oops:
+```text
+[13579.285400] Unable to handle kernel access to user memory without uaccess routines at virtual address 0000000000000088
+[13579.359240] CPU: 3 UID: 0 PID: 466 Comm: systemd Tainted: G D 7.2.3-osl+ #4 PREEMPTLAZY
+[13579.376853] epc : load_misc_binary+0x14/0x2ac [binfmt_misc]
+```
+This crash terminated PID 1 (`systemd`), halting network service initialization (`systemd-networkd`, `osl-setmac`) and leaving the board unreachable at `10.6.4.16`.
+
+#### Resolution & Permanent Installation
+To ensure 100% resilience across power cuts, reboots, and watchdog events:
+1. The board was recovered via Labgrid TFTP netboot (`run_tftp_trial.py --board a210-board-05 --image Image.vxlan --rootfs emmc`).
+2. The eMMC boot partition was mounted:
+   ```bash
+   mount /dev/mmcblk0p3 /mnt/boot
+   ```
+3. The stock kernel was safely backed up:
+   ```bash
+   cp /mnt/boot/Image /mnt/boot/Image.stock.bak
+   ```
+4. The verified `Image.vxlan` was installed to `/mnt/boot/Image` and synced:
+   ```bash
+   scp labgrid:/var/lib/tftpboot/Image.vxlan /mnt/boot/Image
+   sync && umount /mnt/boot
+   ```
+5. **Autonomous Reboot Verification**:
+   The board was rebooted (`reboot`) without Labgrid or TFTP intervention. U-Boot loaded `/mnt/boot/Image` directly from `/dev/mmcblk0p3`. The board booted cleanly in 35 seconds, running `Linux a210-5 7.2.3-osl+ #1 SMP PREEMPT`, mounting `binfmt_misc` cleanly without errors, bringing up `end0` (`10.6.4.16/22`), activating `flannel.1` (`10.244.29.0/32`), and reporting `Ready:True` in Kubernetes.
+
 ---
 
 ## 6. Live Cluster & Node Inventory Matrix
 
 | Node Name | Hardware / SoC | IP Address | TTY Console | OS / Kernel | K8s State | Flannel CNI | Device Plugin | Target Workload |
 |---|---|---|---|---|---|---|---|---|
-| `a210-board-01` | Zhihe A210 (2x C920) | `10.6.4.12` | `/dev/ttyUSB0` | Debian 12 (7.2.3) | Unregistered | Pending | Pending | Standby / Labgrid |
-| `a210-board-02` | Zhihe A210 (2x C920) | `10.6.4.13` | `/dev/ttyUSB1` | Debian 12 (7.2.3) | Unregistered | Pending | Pending | Standby / Labgrid |
+| `a210-board-01` | Zhihe A210 (2x C920) | `10.6.4.12` | `/dev/ttyUSB0` | Debian 12 (7.1.8) | Unregistered | Pending | Pending | Standby / Labgrid |
+| `a210-board-02` | Zhihe A210 (2x C920) | `10.6.4.13` | `/dev/ttyUSB1` | Debian 12 (7.1.8) | Unregistered | Pending | Pending | Standby / Labgrid |
 | `a210-board-03` | Zhihe A210 (2x C920) | `10.6.4.14` | `/dev/ttyUSB2` | Debian 12 (7.2.3) | Unregistered | Pending | Pending | Standby / Labgrid |
 | `a210-board-04` | Zhihe A210 (2x C920) | `10.6.4.15` | `/dev/ttyUSB3` | Debian 12 (7.2.3) | Unregistered | Pending | Pending | Standby / Labgrid |
-| **`a210-board-05`** | **Zhihe A210 (2x C920)** | **`10.6.4.16`** | **`/dev/ttyUSB4`** | **Debian 12 (7.2.3-osl+ VXLAN)** | **Joined & `Ready` (Tainted)** | **Running (`flannel.1`)** | **PR Submitted** | **Python Wheel Pilot** |
+| **`a210-board-05`** | **Zhihe A210 (2x C920)** | **`10.6.4.16`** | **`/dev/ttyUSB4`** | **Debian 12 (7.2.3-osl+ eMMC)** | **Joined & `Ready` (Tainted)** | **Running (`flannel.1`)** | **PR Submitted** | **Python Wheel Pilot** |
 
 ---
 
@@ -299,7 +331,7 @@ Rather than modifying the on-board eMMC boot partition (`/dev/mmcblk0p3`), the n
 2. **Execute End-to-End Pilot Workload**:
    - Run a test Python wheel build pod requesting `riseproject.dev/zhihe-a210: 1` and tolerating the `unmanaged` taint.
    - Validate performance and stability under multi-threaded compilation.
-3. **Persist Kernel to eMMC Boot Partition (Optional)**:
-   - Now that `Image.vxlan` is 100% verified live, copy it to `/dev/mmcblk0p3` as `/mnt/boot/Image` for autonomous boot without serial intervention.
+3. **eMMC Kernel Persistence (Completed)**:
+   - Successfully flashed `Image.vxlan` to `/dev/mmcblk0p3` (`/mnt/boot/Image`); autonomous boots verified resilient across power cycles.
 4. **Scale to Remaining Boards**:
    - Apply the standardized kernel image and Debian Ansible playbooks across `a210-board-01` through `a210-board-04`.
