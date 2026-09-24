@@ -7,6 +7,8 @@ DB_PATH = os.environ.get("HUB_DB_PATH", os.path.expanduser("~/board-farm-hub/hub
 LG_COORDINATOR = os.environ.get("LG_COORDINATOR", "127.0.0.1:20408")
 POLL_INTERVAL_SECS = int(os.environ.get("POLL_INTERVAL_SECS", "30"))
 COORDINATOR_POLL_INTERVAL_SECS = int(os.environ.get("COORDINATOR_POLL_INTERVAL_SECS", "3"))
+CLUSTER_LOCATION = os.environ.get("HUB_LOCATION", "osuosl-milne")
+
 
 BOARD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     "a210-board-01": {

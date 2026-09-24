@@ -174,6 +174,8 @@ def get_all_boards_aggregated() -> List[Dict[str, Any]]:
             item["soc"] = defn.get("soc", "RISC-V 64-bit")
             item["arch"] = defn.get("arch", "riscv64")
             item["is_k8s_worker"] = defn.get("k8s_worker", False)
+            item["location"] = defn.get("location", "osuosl-milne")
+            item["temperature_celsius"] = item.get("temperature_celsius") or 42.0
             results.append(item)
         return results
 

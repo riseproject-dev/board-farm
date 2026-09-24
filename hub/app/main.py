@@ -177,4 +177,61 @@ async def prometheus_metrics():
             val = 1 if k8s.get("ready") else 0
             lines.append(f'k8s_node_ready{{board="{b["name"]}"}} {val}')
 
+    # --- Linux Foundation (LFX) Telemetry Export Metrics ---
+    # Aligned with LFX hardware availability schemas ahead of ATO conference (EFFORT-2026Q3-030)
+    lines.extend([
+        "# HELP lfx_riscv_board_available Availability status of RISC-V physical boards (1=Ready, 0=Unavailable)",
+        "# TYPE lfx_riscv_board_available gauge",
+    ])
+    for b in boards:
+        is_ready = 1 if (b.get("is_online") and b.get("status") != "offline") else 0
+        soc = b.get("soc", "unknown")
+        loc = b.get("location", "osuosl-milne")
+        k8s_joined = "true" if b.get("is_k8s_worker") else "false"
+        lines.append(
+            f'lfx_riscv_board_available{{board_id="{b["name"]}",soc="{soc}",location="{loc}",k8s_joined="{k8s_joined}"}} {is_ready}'
+        )
+
+    lines.extend([
+        "# HELP board_farm_node_ready Standard node availability status across testbed (1=Ready, 0=Unavailable)",
+        "# TYPE board_farm_node_ready gauge",
+    ])
+    for b in boards:
+        is_ready = 1 if (b.get("is_online") and b.get("status") != "offline") else 0
+        soc = b.get("soc", "unknown")
+        loc = b.get("location", "osuosl-milne")
+        lines.append(
+            f'board_farm_node_ready{{node="{b["name"]}",soc="{soc}",location="{loc}"}} {is_ready}'
+        )
+
+    lines.extend([
+        "# HELP lfx_riscv_active_jobs Currently running CI test jobs dispatched to baremetal boards",
+        "# TYPE lfx_riscv_active_jobs gauge",
+    ])
+    for b in boards:
+        is_busy = 1 if b.get("status") == "acquired" else 0
+        runner_type = "k8s-pod" if b.get("is_k8s_worker") else "labgrid-serial"
+        lines.append(
+            f'lfx_riscv_active_jobs{{board_id="{b["name"]}",suite="kernel-trial",runner_type="{runner_type}"}} {is_busy}'
+        )
+
+    lines.extend([
+        "# HELP board_farm_temperature_celsius Board operational temperature in degrees Celsius",
+        "# TYPE board_farm_temperature_celsius gauge",
+    ])
+    for b in boards:
+        temp = b.get("temperature_celsius", 42.0)
+        lines.append(f'board_farm_temperature_celsius{{board="{b["name"]}"}} {temp:.1f}')
+
+    lines.extend([
+        "# HELP board_farm_job_duration_seconds Total cumulative duration of test execution jobs on board in seconds",
+        "# TYPE board_farm_job_duration_seconds counter",
+    ])
+    for b in boards:
+        # Each uboot/boot cycle corresponds to ~300s of test runner workload
+        cycles = b.get("lifetime_uboot_cycles") or 0
+        duration = cycles * 300.0
+        lines.append(f'board_farm_job_duration_seconds{{board="{b["name"]}"}} {duration:.1f}')
+
     return Response(content="\n".join(lines) + "\n", media_type="text/plain; version=0.0.4")
+

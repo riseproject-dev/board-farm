@@ -61,4 +61,19 @@ python3 hub.py run --port 8080
 - `GET /api/v1/events`: Recent cluster activity event log
 - `GET /api/v1/stream`: Server-Sent Events (SSE) live updates stream
 - `POST /api/v1/refresh`: Trigger an immediate on-demand polling cycle
-- `GET /metrics`: Prometheus formatted metrics export
+- `GET /metrics`: Prometheus formatted metrics export (including Linux Foundation LFX telemetry schemas)
+
+---
+
+## Linux Foundation (LFX) Telemetry Schema
+
+The `/metrics` endpoint exports metrics conforming to the Linux Foundation LFX hardware testbed specification for the All Things Open (ATO) showcase:
+
+| Metric Name | Type | Labels | Description |
+| :--- | :--- | :--- | :--- |
+| `lfx_riscv_board_available` | Gauge | `board_id`, `soc`, `location`, `k8s_joined` | Availability status of RISC-V physical boards (1=Ready, 0=Unavailable) |
+| `lfx_riscv_active_jobs` | Gauge | `board_id`, `suite`, `runner_type` | Currently active CI test executions dispatched to baremetal boards |
+| `board_farm_node_ready` | Gauge | `node`, `soc`, `location` | Node readiness status across testbed |
+| `board_farm_temperature_celsius` | Gauge | `board` | Operating temperature in Celsius |
+| `board_farm_job_duration_seconds` | Counter | `board` | Cumulative test job run duration |
+
