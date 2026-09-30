@@ -12,6 +12,8 @@ import subprocess
 import argparse
 
 BOARD_MAP = {
+    "a210-board-03": {"port": "/dev/ttyUSB2", "ssh": "root@10.6.4.14"},
+    "a210-3": {"port": "/dev/ttyUSB2", "ssh": "root@10.6.4.14"},
     "a210-board-04": {"port": "/dev/ttyUSB3", "ssh": "root@10.6.4.15"},
     "a210-4": {"port": "/dev/ttyUSB3", "ssh": "root@10.6.4.15"},
 }
