@@ -3,7 +3,8 @@ import logging
 import re
 import socket
 from typing import Dict, Any, Tuple
-from app.config import BOARD_DEFINITIONS
+import os
+from app.config import BOARD_DEFINITIONS, SSH_KEY_PATH
 from app.db import upsert_telemetry
 
 logger = logging.getLogger("hub.telemetry")
@@ -51,8 +52,10 @@ async def poll_board_telemetry(board_name: str, ip: str, is_k8s_worker: bool = F
     ssh_args = [
         "ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=3",
         "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR",
-        f"root@{ip}", remote_cmd
     ]
+    if SSH_KEY_PATH and os.path.exists(SSH_KEY_PATH):
+        ssh_args.extend(["-i", SSH_KEY_PATH])
+    ssh_args.extend([f"root@{ip}", remote_cmd])
 
     try:
         proc = await asyncio.create_subprocess_exec(

@@ -47,9 +47,33 @@ python3 hub.py run --port 8080
 
 ---
 
-## Remote Deployment to Labgrid Controller
+## Remote Deployment to Labgrid Controller (`/opt/board-farm-hub`)
+
+The Hub runs in `/opt/board-farm-hub` on `labgrid.bak.milne.osuosl.org` (`10.6.4.11`), managed by `board-farm-hub.service` and shared across the `rise` group.
+
+### Option A: Automated Deployment (No `git clone` required on controller)
+From a workstation with `ssh-osu.sh` configured, run:
 ```bash
 ./deploy.sh
+```
+This archives `hub/` via `tar` over SSH directly into `/opt/board-farm-hub`, creates `/opt/board-farm-hub/venv`, installs `requirements.txt`, and configures/restarts `/etc/systemd/system/board-farm-hub.service`.
+
+### Option B: Manual `scp` or `git clone` on the Controller
+If deploying directly on the controller (`10.6.4.11`):
+```bash
+# 1. Copy or clone files into /opt/board-farm-hub
+sudo mkdir -p /opt/board-farm-hub
+sudo chown -R "$USER:rise" /opt/board-farm-hub
+cp -r hub/* /opt/board-farm-hub/
+
+# 2. Create virtualenv and install dependencies
+python3 -m venv /opt/board-farm-hub/venv
+/opt/board-farm-hub/venv/bin/pip install --upgrade pip
+/opt/board-farm-hub/venv/bin/pip install -r /opt/board-farm-hub/requirements.txt
+
+# 3. Enable and start systemd service
+sudo systemctl daemon-reload
+sudo systemctl enable --now board-farm-hub.service
 ```
 
 ---
