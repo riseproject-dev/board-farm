@@ -7,9 +7,10 @@ import argparse
 import asyncio
 import uvicorn
 from app.config import HOST, PORT
-from app.db import init_db, get_all_boards_aggregated
+from app.db import init_db, get_all_boards_aggregated, get_recent_events
 from app.coordinator import sync_coordinator_state
 from app.telemetry import run_telemetry_loop
+from app.relay import push_reservations, push_telemetry
 
 async def run_poll():
     print("Initializing SQLite database...")
@@ -19,6 +20,10 @@ async def run_poll():
     print("Polling board hardware telemetry...")
     await run_telemetry_loop()
     boards = get_all_boards_aggregated()
+    events = get_recent_events(30)
+    print("Pushing snapshot to configured remote relays (if any)...")
+    await push_reservations(boards)
+    await push_telemetry(boards, events)
     print(f"\n--- Aggregated Cluster State ({len(boards)} boards) ---")
     for b in boards:
         print(f"[{b['name']}] Status: {b['status']} | Online: {b['is_online']} | IP: {b['ip_address']} | Uptime: {b['uptime_seconds']}s | Load: {b['load_1m']} | K8s: {b.get('is_k8s_worker')}")

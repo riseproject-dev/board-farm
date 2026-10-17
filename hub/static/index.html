@@ -319,6 +319,17 @@
   <script>
     const { createApp, ref, computed, onMounted } = Vue;
 
+    // =========================================================================
+    // Remote Relay Configuration (e.g. Google Apps Script Web App /exec URL)
+    // - Set DEFAULT_REMOTE_API_URL below (or pass ?api=https://... in the URL)
+    //   when hosting this HTML on GitHub Pages or opening it as a static file.
+    // - When served locally by FastAPI (`hub.py run`), if DEFAULT_REMOTE_API_URL
+    //   is empty, it uses the local `/api/v1/stream` SSE & `/api/v1/boards` API.
+    // =========================================================================
+    const DEFAULT_REMOTE_API_URL = "https://script.google.com/macros/s/AKfycbwv98a34Xys62GcmMtx_3crm_dAxvrvpWIRZLm1QwHxpkmnmkL2igX_pfGXwEqkD4se/exec";
+    const REMOTE_API_URL = new URLSearchParams(window.location.search).get("api") || DEFAULT_REMOTE_API_URL;
+    const REMOTE_POLL_INTERVAL_MS = 3000;
+
     createApp({
       setup() {
         const boards = ref([]);
@@ -326,13 +337,42 @@
         const sseConnected = ref(false);
         const refreshing = ref(false);
         const coordinatorStatus = ref("127.0.0.1:20408");
+        const isRemoteMode = Boolean(REMOTE_API_URL);
 
         const onlineCount = computed(() => boards.value.filter(b => b.is_online).length);
         const acquiredCount = computed(() => boards.value.filter(b => b.status === 'acquired').length);
         const idleCount = computed(() => boards.value.filter(b => b.status === 'idle').length);
         const totalLifetimeBoots = computed(() => boards.value.reduce((acc, b) => acc + (b.lifetime_uboot_cycles || 0), 0));
 
+        const fetchRemoteRelay = async () => {
+          try {
+            const sep = REMOTE_API_URL.includes('?') ? '&' : '?';
+            const res = await fetch(`${REMOTE_API_URL}${sep}_t=${Date.now()}`, { cache: 'no-store' });
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data.boards)) {
+                boards.value = data.boards;
+              }
+              if (Array.isArray(data.events)) {
+                events.value = data.events;
+              }
+              if (data.coordinator) {
+                coordinatorStatus.value = data.coordinator;
+              }
+              sseConnected.value = true;
+            } else {
+              sseConnected.value = false;
+            }
+          } catch (e) {
+            console.error("Failed to fetch from remote relay:", e);
+            sseConnected.value = false;
+          }
+        };
+
         const fetchBoards = async () => {
+          if (isRemoteMode) {
+            return fetchRemoteRelay();
+          }
           try {
             const res = await fetch('/api/v1/boards');
             if (res.ok) {
@@ -344,6 +384,7 @@
         };
 
         const fetchEvents = async () => {
+          if (isRemoteMode) return;
           try {
             const res = await fetch('/api/v1/events');
             if (res.ok) {
@@ -357,15 +398,27 @@
         const triggerRefresh = async () => {
           refreshing.value = true;
           try {
-            await fetch('/api/v1/refresh', { method: 'POST' });
-            await fetchBoards();
-            await fetchEvents();
+            if (isRemoteMode) {
+              await fetchRemoteRelay();
+            } else {
+              await fetch('/api/v1/refresh', { method: 'POST' });
+              await fetchBoards();
+              await fetchEvents();
+            }
           } finally {
             refreshing.value = false;
           }
         };
 
         const setupSSE = () => {
+          if (isRemoteMode) {
+            setInterval(() => {
+              if (!document.hidden) {
+                fetchRemoteRelay();
+              }
+            }, REMOTE_POLL_INTERVAL_MS);
+            return;
+          }
           const evtSource = new EventSource('/api/v1/stream');
           evtSource.onopen = () => {
             sseConnected.value = true;

@@ -14,26 +14,29 @@ echo "========================================================"
 # 1. Prepare /opt/board-farm-hub and sync code to remote controller
 echo "[1/4] Preparing $INSTALL_DIR and syncing hub code to controller..."
 "$SSH_CMD" labgrid "
-  sudo mkdir -p '$INSTALL_DIR'
-  sudo chown -R \"\$USER:rise\" '$INSTALL_DIR'
+  sudo mkdir -p '$INSTALL_DIR/tokens'
+  sudo chgrp -R rise '$INSTALL_DIR'
+  sudo chmod -R g+rwX '$INSTALL_DIR'
 "
-tar -czf - -C "$SCRIPT_DIR" . | "$SSH_CMD" labgrid "tar -xzf - -C '$INSTALL_DIR'"
+tar --exclude='tokens' --exclude='*.token' --exclude='*.db*' --exclude='venv' -czf - -C "$SCRIPT_DIR" . | "$SSH_CMD" labgrid "tar --no-overwrite-dir --no-same-permissions -xzf - -C '$INSTALL_DIR' && sudo chgrp -R rise '$INSTALL_DIR' && sudo chmod -R g+rwX '$INSTALL_DIR'"
 
 # 2. Setup Virtualenv & Dependencies in /opt/board-farm-hub/venv
 echo "[2/4] Setting up Python virtual environment and dependencies..."
 "$SSH_CMD" labgrid "
   if [ ! -d '$INSTALL_DIR/venv' ]; then
     python3 -m venv '$INSTALL_DIR/venv'
+    '$INSTALL_DIR/venv/bin/pip' install --upgrade pip
+    '$INSTALL_DIR/venv/bin/pip' install -r '$INSTALL_DIR/requirements.txt'
+    sudo chgrp -R rise '$INSTALL_DIR'
+    sudo chmod -R g+rwX '$INSTALL_DIR'
   fi
-  '$INSTALL_DIR/venv/bin/pip' install --upgrade pip
-  '$INSTALL_DIR/venv/bin/pip' install -r '$INSTALL_DIR/requirements.txt'
-  sudo chown -R \"\$USER:rise\" '$INSTALL_DIR'
 "
 
-# 3. Install Systemd Service
-echo "[3/4] Installing and restarting systemd service..."
+# 3. Install (if not already present) and restart Systemd Service
+echo "[3/4] Restarting systemd service..."
 "$SSH_CMD" labgrid "
-  sudo tee /etc/systemd/system/board-farm-hub.service > /dev/null << SVC
+  if [ ! -f /etc/systemd/system/board-farm-hub.service ]; then
+    sudo tee /etc/systemd/system/board-farm-hub.service > /dev/null << SVC
 [Unit]
 Description=RISE Board Farm Hub (Web Dashboard & Telemetry)
 After=network.target labgrid-coordinator.service
@@ -54,9 +57,9 @@ Environment=HUB_DB_PATH=$INSTALL_DIR/hub.db
 [Install]
 WantedBy=multi-user.target
 SVC
-
-  sudo systemctl daemon-reload
-  sudo systemctl enable board-farm-hub.service
+    sudo systemctl daemon-reload
+    sudo systemctl enable board-farm-hub.service
+  fi
   sudo systemctl restart board-farm-hub.service
 "
 

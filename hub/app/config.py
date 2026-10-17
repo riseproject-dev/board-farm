@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List, Tuple
 
 HOST = os.environ.get("HUB_HOST", "0.0.0.0")
 PORT = int(os.environ.get("HUB_PORT", "8080"))
@@ -9,6 +9,20 @@ SSH_KEY_PATH = os.environ.get("HUB_SSH_KEY", "")
 POLL_INTERVAL_SECS = int(os.environ.get("POLL_INTERVAL_SECS", "30"))
 COORDINATOR_POLL_INTERVAL_SECS = int(os.environ.get("COORDINATOR_POLL_INTERVAL_SECS", "3"))
 CLUSTER_LOCATION = os.environ.get("HUB_LOCATION", "osuosl-milne")
+
+# List of (relay_url, token_file_path) pairs for pushing live board state.
+# - relay_url: Public web app endpoint (e.g. Google Apps Script /exec URL).
+# - token_file_path: Shared path on the labgrid controller host containing the
+#   secret token (chmod 640 root/user:rise, never committed to Git).
+REMOTE_RELAYS: List[Tuple[str, str]] = [
+    (
+        os.environ.get(
+            "GAS_RELAY_URL",
+            "https://script.google.com/macros/s/AKfycbwv98a34Xys62GcmMtx_3crm_dAxvrvpWIRZLm1QwHxpkmnmkL2igX_pfGXwEqkD4se/exec",
+        ),
+        os.environ.get("GAS_TOKEN_FILE", "/opt/board-farm-hub/tokens/gas.token"),
+    ),
+]
 
 
 BOARD_DEFINITIONS: Dict[str, Dict[str, Any]] = {

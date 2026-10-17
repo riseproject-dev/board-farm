@@ -16,6 +16,7 @@ from app.db import (
 )
 from app.coordinator import sync_coordinator_state
 from app.telemetry import run_telemetry_loop
+from app.relay import push_reservations, push_telemetry
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("hub.main")
@@ -31,22 +32,27 @@ async def broadcast_event(event_type: str, data: dict):
             active_subscribers.discard(queue)
 
 async def background_scheduler():
-    """Runs coordinator sync and hardware telemetry polling loops."""
+    """Runs coordinator sync (every 3s) and hardware telemetry polling (every 30s) loops."""
     logger.info("Starting background coordinator and telemetry worker...")
-    coord_counter = 0
+    # Start at POLL_INTERVAL_SECS so the first iteration runs both coordinator and telemetry
+    coord_counter = POLL_INTERVAL_SECS
     while True:
         try:
             # 1. Poll Labgrid Coordinator every 3s
             await sync_coordinator_state()
+            boards = get_all_boards_aggregated()
+            asyncio.create_task(push_reservations(boards))
 
-            # 2. Poll Board Hardware Telemetry every POLL_INTERVAL_SECS
+            # 2. Poll Board Hardware Telemetry every 30s
             coord_counter += COORDINATOR_POLL_INTERVAL_SECS
             if coord_counter >= POLL_INTERVAL_SECS:
                 coord_counter = 0
                 await run_telemetry_loop()
+                boards = get_all_boards_aggregated()
+                events = get_recent_events(30)
+                asyncio.create_task(push_telemetry(boards, events))
 
-            # Broadcast update to connected SSE clients
-            boards = get_all_boards_aggregated()
+            # 3. Broadcast update to local connected SSE clients immediately
             await broadcast_event("boards_update", {"boards": boards})
 
         except Exception as e:
@@ -57,9 +63,6 @@ async def background_scheduler():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    # Initial immediate pass
-    asyncio.create_task(sync_coordinator_state())
-    asyncio.create_task(run_telemetry_loop())
     task = asyncio.create_task(background_scheduler())
     yield
     task.cancel()
@@ -95,6 +98,9 @@ async def trigger_refresh():
     await sync_coordinator_state()
     await run_telemetry_loop()
     boards = get_all_boards_aggregated()
+    events = get_recent_events(30)
+    await push_reservations(boards)
+    await push_telemetry(boards, events)
     await broadcast_event("boards_update", {"boards": boards})
     return {"status": "refreshed", "boards": len(boards)}
 
