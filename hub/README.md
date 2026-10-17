@@ -22,11 +22,15 @@ hub/
 ├── deploy.sh               # One-click remote deployment to controller host
 ├── hub.py                  # CLI runner and entrypoint
 ├── app/
-│   ├── config.py           # Cluster configuration & board metadata
+│   ├── config.py           # Cluster configuration, board metadata & REMOTE_RELAYS
 │   ├── db.py               # SQLite WAL database models & CRUD
-│   ├── coordinator.py      # Labgrid coordinator sync worker
-│   ├── telemetry.py        # Hardware & Kubernetes telemetry poller
+│   ├── coordinator.py      # Labgrid coordinator sync worker (3s loop)
+│   ├── telemetry.py        # Hardware & Kubernetes telemetry poller (30s loop)
+│   ├── relay.py            # Non-blocking 3s/30s state pusher to remote relays
 │   └── main.py             # FastAPI REST, SSE stream, and metrics endpoints
+├── gas/
+│   ├── Code.gs             # Google Apps Script CacheService relay (doPost / doGet)
+│   └── README.md           # Step-by-step guide for public GAS relay + GitHub Pages
 └── static/
     └── index.html          # Vue 3 / Tailwind CSS responsive web dashboard
 ```
@@ -75,6 +79,15 @@ python3 -m venv /opt/board-farm-hub/venv
 sudo systemctl daemon-reload
 sudo systemctl enable --now board-farm-hub.service
 ```
+
+---
+
+## Public Web Dashboard (Google Apps Script Relay + GitHub Pages)
+
+To host the dashboard publicly without exposing the OSU OSL controller to inbound internet traffic, `hub` pushes 3-second reservation updates and 30-second hardware telemetry snapshots to a stateless **Google Apps Script (`CacheService`)** relay, which is polled by `static/index.html` on **GitHub Pages**.
+
+* **Live Public Dashboard**: `https://riseproject-dev.github.io/board-farm/hub/static/`
+* **Full Setup & Maintenance Guide**: See **[`hub/gas/README.md`](gas/README.md)** for step-by-step instructions on configuring `Code.gs`, setting the `PUSH_TOKEN` secret, and deploying.
 
 ---
 
