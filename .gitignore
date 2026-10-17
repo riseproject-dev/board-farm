@@ -4,3 +4,8 @@ __pycache__/
 *.log
 results.xml
 .pytest_cache/
+*.token
+hub/tokens/
+*.db
+*.db-shm
+*.db-wal

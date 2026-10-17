@@ -65,6 +65,10 @@ if [ -n "$OSU_SOCKS5_PROXY" ] && [ "$OSU_SOCKS5_PROXY" != "none" ] && [ "$OSU_SO
         fi
     fi
     SSH_PROXY_ARGS=(-o "ProxyCommand=nc -X 5 -x ${OSU_SOCKS5_PROXY} %h %p")
+else
+    # Explicitly disable system-wide ProxyCommand (e.g. gLinux corp-ssh-helper)
+    # when using a direct OpenVPN tunnel on the host.
+    SSH_PROXY_ARGS=(-o "ProxyCommand=none")
 fi
 
 # 4. Resolve Target Host and Remote User
