@@ -1,0 +1,43 @@
+From 8a8bb2cd3fd5b9f0a4dc22672b784fe484cbdbc9 Mon Sep 17 00:00:00 2001
+From: Puneetha Ramachandra <puneetha@google.com>
+Date: Mon, 19 Oct 2026 19:46:28 +0000
+Subject: [PATCH] riscv: dts: zhihe: a210: reserve OpenSBI memory region with
+ no-map
+
+OpenSBI firmware resides in physical RAM at 0x80000000-0x80200000 (2 MiB)
+and configures hardware PMP entries forbidding Supervisor-mode writes to
+this range.
+
+Without an explicit reserved-memory node marked no-map, Linux includes
+0x80000000-0x801fffff in System RAM. Under memory/page-cache pressure
+(such as containerd layer extraction), the buddy allocator hands out
+pages in 0x80000000-0x801fffff (virtual 0xffffffd600000000+), triggering
+a fatal store/AMO access fault (cause 7) when the kernel zeroes or copies
+into those pages.
+
+Add opensbi@80000000 with no-map under /reserved-memory so System RAM
+begins at 0x80200000.
+
+Signed-off-by: Puneetha Ramachandra <puneetha@google.com>
+---
+ arch/riscv/boot/dts/zhihe/a210-dev.dts | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/arch/riscv/boot/dts/zhihe/a210-dev.dts b/arch/riscv/boot/dts/zhihe/a210-dev.dts
+index 2dd5a0c54f52..112f633d2efe 100755
+--- a/arch/riscv/boot/dts/zhihe/a210-dev.dts
++++ b/arch/riscv/boot/dts/zhihe/a210-dev.dts
+@@ -84,6 +84,11 @@ reserved-memory {
+ 		#size-cells = <2>;
+ 		ranges;
+ 
++		opensbi@80000000 {
++			reg = <0x00 0x80000000 0x00 0x200000>;
++			no-map;
++		};
++
+ 		linux,cma {
+ 			compatible = "shared-dma-pool";
+ 			reusable;
+-- 
+2.52.0

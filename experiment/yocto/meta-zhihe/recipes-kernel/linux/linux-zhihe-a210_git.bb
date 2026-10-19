@@ -6,7 +6,8 @@ LIC_FILES_CHKSUM = "file://COPYING;md5=6bc538ed5bd9a7fc9398086aeddd7e4b"
 inherit kernel
 
 SRC_URI = "git://git.osuosl.org/osuosl/zhihe-a210-kernel.git;protocol=https;branch=osl/a210-mainline \
-           file://defconfig"
+           file://defconfig \
+           file://0001-riscv-dts-zhihe-a210-reserve-OpenSBI-memory-region-w.patch"
 
 # osl/a210-mainline head
 SRCREV = "dba78c9a1309ef6b42ceb301cc68bb187b2f1385"
