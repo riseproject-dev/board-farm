@@ -56,3 +56,4 @@ Phase 1 (MVP)                             Phase 2 (Production Cloud)
 * **[Labgrid DHCP & TFTP Research](docs/phase-1-labgrid-pilot/labgrid-dhcp-tftp-research.md):** Labgrid 4-role process model, U-Boot TFTP vs PXE boot flows, and network isolation rules.
 * **[OpenBMC RISC-V BMC Plan](docs/phase-2-openbmc-production/openbmc-riscv-bmc-plan.md):** Implementation plan for OpenBMC multi-host Redfish controllers on x86 exporter hardware.
 * **[TFTP Boot & GHA Flashing Design](docs/architecture-design/tftp-boot-gha-and-flashing-design.md):** GitHub Actions workflows, TFTP boot, and exclusive container pool testing designs.
+* **[Build-Centric TFTP Storage & Release Lifecycle](docs/architecture-design/build-centric-tftp-and-release-lifecycle.md):** Immutable per-build TFTP directory layout, Hetzner cross-compilation CI pipeline, 90-day retention policy, and monthly eMMC release cycle.
