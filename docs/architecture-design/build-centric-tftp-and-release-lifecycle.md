@@ -5,7 +5,7 @@
 ## 1. Overview & Motivation
 
 ### 1.1. Current State
-On the OSU OSL controller (`10.6.4.11`), `/var/lib/tftpboot/` (or `/srv/tftp/`) currently operates as a single flat directory holding one active set of boot files (`Image`, `.dtb`, and rootfs) alongside a manual backup copy.
+On the OSU-OSL TFTP server (`board-farm-controller`), `/var/lib/tftpboot/` (or `/srv/tftp/`) currently operates as a single flat directory holding one active set of boot files (`Image`, `.dtb`, and rootfs) alongside a manual backup copy.
 
 When a new build is staged into this flat directory:
 1. **Concurrent Boot Race Condition:** Overwriting the active files in `/var/lib/tftpboot/` while another board is mid-boot can corrupt the in-progress TFTP transfer.
@@ -15,13 +15,13 @@ When a new build is staged into this flat directory:
 Instead of overwriting a single TFTP directory, every cross-compiled binary set is stored in its own **immutable, versioned build directory** (`/var/lib/tftpboot/builds/<build-id>/`) with atomic symlink labels (`latest-yocto`, `latest-debian`, `current-stable`):
 
 * **Hetzner `x86_64` Build Servers:** Perform fast cross-compilation of the A210 Linux Kernel, Yocto (`meta-riscv`), and Debian 13 (`riscv64`) images.
-* **GitHub Actions Delivery:** Transfers completed build bundles to `10.6.4.11`, places them in an immutable `/var/lib/tftpboot/builds/<build-id>/` directory, and updates labels.
+* **GitHub Actions Delivery:** Transfers completed build bundles to the TFTP server, places them in an immutable `/var/lib/tftpboot/builds/<build-id>/` directory, and updates labels.
 * **On-Demand & Automated Booting:** Free A210 boards can be instructed via Labgrid to TFTP-boot **any** stored `<build-id>` into RAM (`initramfs`) without touching onboard eMMC storage.
 * **Monthly Release Cycle & 3-Month Retention:** Once a month, a verified build is promoted to `releases/YYYY-MM-release/` and flashed back to the boards' onboard eMMC as the new persistent baseline. Build directories under `builds/` are retained for **3 months (90 days)** and then automatically pruned.
 
 ---
 
-## 2. TFTP Directory Layout on `10.6.4.11`
+## 2. TFTP Server Directory Layout
 
 ```text
 /var/lib/tftpboot/
@@ -67,8 +67,8 @@ Instead of overwriting a single TFTP directory, every cross-compiled binary set 
    * **Debian 13 (`trixie`):** Built from `https://git.osuosl.org/osuosl/a210-linux` (`mmdebstrap --arch=riscv64` + A210 kernel).
 3. The job generates a unique `<build-id>` (e.g., `YYYY-MM-DD_<type>_<git-sha>`) and uploads `Image`, `a210-dev.dtb`, `rootfs.cpio.gz`, and `build-info.json` via `actions/upload-artifact@v4`.
 
-### 3.2. Stage 2: Atomic Staging & Labeling on OSU OSL (`10.6.4.11`)
-1. The self-hosted runner on `10.6.4.11` (`[self-hosted, board-farm-controller]`) downloads the artifact into a temporary staging path (`/tmp/staging-<build-id>/`).
+### 3.2. Stage 2: Atomic Staging & Labeling on the TFTP Server
+1. The self-hosted runner on the OSU-OSL TFTP server (`[self-hosted, board-farm-controller]`) downloads the artifact into a temporary staging path (`/tmp/staging-<build-id>/`).
 2. Once the download is 100% complete, the runner moves it atomically into `/var/lib/tftpboot/builds/<build-id>/` and updates the corresponding symlink under `/var/lib/tftpboot/labels/` (`ln -sfn ../builds/<build-id> /var/lib/tftpboot/labels/latest-<type>`).
 3. **Concurrency Guarantee:**
    * Because `/var/lib/tftpboot/builds/<build-id>/` is never modified after the atomic `mv`, an in-progress TFTP boot can never be overwritten by a subsequent build.
@@ -195,4 +195,4 @@ Assuming a steady CI build cadence over **90 days**:
 * **Monthly Releases (`releases/`)** (12 monthly releases/year × 150 MB): **~1.8 GB**
 * **Total Expected Disk Usage (90 Days):** **~28 – 30 GB total**
 
-At ~30 GB for a full 3-month rolling window of all three workstreams, the entire build archive fits comfortably on the local storage of the OSU OSL controller (`10.6.4.11`).
+At ~30 GB for a full 3-month rolling window of all three workstreams, the entire build archive fits comfortably on the local storage of the OSU-OSL TFTP server.
