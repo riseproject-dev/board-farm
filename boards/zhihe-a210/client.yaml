@@ -1,0 +1,20 @@
+# Labgrid client configuration for pool-based Zhihe A210 reservation (`pool=a210-yocto`).
+# Usage with `LG_TOKEN` from `eval $(labgrid-client reserve --wait --shell pool=a210-yocto)`:
+#   labgrid-client -c boards/zhihe-a210/client.yaml ...
+targets:
+  main:
+    resources:
+      RemotePlace:
+        name: +
+    drivers:
+      SerialDriver: {}
+      UBootDriver:
+        prompt: "u-boot#"
+        autoboot: "Hit any key to stop autoboot"
+        interrupt: " "
+
+roles:
+  main:
+    - main
+  zhihe-a210:
+    - main

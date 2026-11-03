@@ -1,0 +1,25 @@
+# Reference Labgrid exporter configuration for the `pool=a210-yocto` A210 pool
+# on the OSU-OSL board-farm-controller (/etc/labgrid/exporter.yaml).
+#
+# Tag any board added to the Yocto CI pool on the coordinator via:
+#   labgrid-client -p <board-name> set-tags board=zhihe-a210 pool=a210-yocto
+#
+# Serial port is matched by physical USB topology path (ID_PATH) rather than
+# /dev/ttyUSB* index so host USB re-enumeration never swaps boards.
+a210-board-03:
+  serial:
+    cls: USBSerialPort
+    match:
+      ID_PATH: pci-0000:00:1a.0-usb-0:1.2.4.2:1.0
+    speed: 115200
+  ssh:
+    cls: NetworkService
+    # Provisioned dynamically on the private CI VLAN by OSU-OSL DHCP
+    address: "<assigned-by-dhcp>"
+    username: root
+  # Enabled upon Shelf 1 Devantech ETH008-B 12V relay deployment:
+  # power:
+  #   cls: NetworkPowerPort
+  #   model: eth008
+  #   host: "<shelf-eth008-relay-host>"
+  #   index: 3

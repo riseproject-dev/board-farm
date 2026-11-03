@@ -1,0 +1,138 @@
+name: "Zhihe A210 Yocto RAM Netboot Test (OSU-OSL)"
+description: "Atomically stages Yocto build artifacts into /var/lib/tftpboot/builds/<build_id>/ on board-farm-controller and executes volatile RAM netboot verification via Labgrid on any available board in pool=a210-yocto."
+
+inputs:
+  build_id:
+    description: "Unique build directory identifier under /var/lib/tftpboot/builds/"
+    required: true
+  artifact_dir:
+    description: "Local directory containing Image, a210-dev.dtb, rootfs.cpio.gz, and optional build-info.json (ignored if skip_stage == 'true')"
+    required: false
+    default: ""
+  skip_stage:
+    description: "Set to 'true' to boot an already-staged /var/lib/tftpboot/builds/<build_id>/ directory"
+    required: false
+    default: "false"
+  pool:
+    description: "Labgrid pool tag to dynamically reserve an available board from"
+    required: false
+    default: "a210-yocto"
+  place:
+    description: "Optional explicit Labgrid place override (leave empty to dynamically reserve any free board in inputs.pool)"
+    required: false
+    default: ""
+  expected_kernel_prefix:
+    description: "Optional expected kernel version prefix (e.g. '7.2.12')"
+    required: false
+    default: ""
+  update_latest_label:
+    description: "Update /var/lib/tftpboot/labels/latest-yocto symlink on successful boot"
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Stage Build Bundle into Build-Centric TFTP Archive
+      if: ${{ inputs.skip_stage != 'true' }}
+      shell: bash
+      env:
+        BUILD_ID: ${{ inputs.build_id }}
+        ARTIFACT_DIR: ${{ inputs.artifact_dir }}
+      run: |
+        set -euo pipefail
+        if [[ ! "$BUILD_ID" =~ ^[A-Za-z0-9._-]+$ ]]; then
+          echo "::error::Invalid build_id '$BUILD_ID'"
+          exit 1
+        fi
+        for f in Image a210-dev.dtb rootfs.cpio.gz; do
+          if [ ! -f "${ARTIFACT_DIR}/${f}" ]; then
+            echo "::error::Missing required artifact ${ARTIFACT_DIR}/${f}"
+            exit 1
+          fi
+        done
+
+        DEST="/var/lib/tftpboot/builds/${BUILD_ID}"
+        STAGE="/var/lib/tftpboot/builds/.staging-${BUILD_ID}-$$"
+        rm -rf "$STAGE"
+        mkdir -p "$STAGE" /var/lib/tftpboot/labels
+        cp -f "${ARTIFACT_DIR}/Image" \
+              "${ARTIFACT_DIR}/a210-dev.dtb" \
+              "${ARTIFACT_DIR}/rootfs.cpio.gz" \
+              "$STAGE/"
+        if [ -f "${ARTIFACT_DIR}/build-info.json" ]; then
+          cp -f "${ARTIFACT_DIR}/build-info.json" "$STAGE/"
+        fi
+        chmod -R a+rX "$STAGE"
+        rm -rf "$DEST"
+        mv "$STAGE" "$DEST"
+        echo "Staged build artifacts to $DEST"
+
+        # Prune immutable build directories older than 90 days
+        find /var/lib/tftpboot/builds/ -mindepth 1 -maxdepth 1 -type d ! -name '.staging-*' -mtime +90 -exec rm -rf {} + || true
+
+    - name: Run Volatile RAM Netboot Verification via Labgrid Pool
+      id: boot_test
+      shell: bash
+      env:
+        POOL: ${{ inputs.pool }}
+        PLACE: ${{ inputs.place }}
+        BUILD_ID: ${{ inputs.build_id }}
+        KERNEL_PREFIX: ${{ inputs.expected_kernel_prefix }}
+        ACTION_REPO_ROOT: ${{ github.action_path }}/../../..
+      run: |
+        set -euo pipefail
+        export LG_COORDINATOR="${LG_COORDINATOR:-127.0.0.1:20408}"
+        pytest -v -s \
+          "${ACTION_REPO_ROOT}/boards/zhihe-a210/pytest/test_yocto_netboot.py" \
+          --pool="$POOL" \
+          --place="$PLACE" \
+          --tftp-dir="builds/${BUILD_ID}" \
+          --expected-kernel-prefix="$KERNEL_PREFIX" \
+          --serial-log="yocto_serial_boot.log" \
+          --junitxml="yocto_boot_results.xml"
+
+    - name: Promote latest-yocto Symlink on Passing Boot
+      if: ${{ success() && inputs.update_latest_label == 'true' }}
+      shell: bash
+      env:
+        BUILD_ID: ${{ inputs.build_id }}
+      run: |
+        mkdir -p /var/lib/tftpboot/labels
+        ln -sfn "../builds/${BUILD_ID}" /var/lib/tftpboot/labels/latest-yocto
+
+    - name: Publish Boot Summary
+      if: always()
+      shell: bash
+      env:
+        POOL: ${{ inputs.pool }}
+        PLACE: ${{ inputs.place }}
+        BUILD_ID: ${{ inputs.build_id }}
+      run: |
+        ALLOCATED="${PLACE:-dynamic}"
+        if [ -f yocto_allocated_place.txt ]; then
+          ALLOCATED="$(tr -d '\r\n' < yocto_allocated_place.txt)"
+        fi
+        {
+          echo "### Zhihe A210 Yocto Hardware Netboot Summary"
+          echo "- **Labgrid Pool**: \`pool=${POOL}\` (allocated place: \`${ALLOCATED}\`)"
+          echo "- **TFTP Build Directory**: \`/var/lib/tftpboot/builds/${BUILD_ID}\`"
+          if [ -f yocto_serial_boot.log ]; then
+            echo ""
+            echo "#### Captured Target Probe"
+            echo '```text'
+            sed -n '/===CI_PROBE_START===/,/===CI_PROBE_END===/p' yocto_serial_boot.log || tail -n 30 yocto_serial_boot.log
+            echo '```'
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload UART Boot Log & JUnit XML
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: a210-yocto-hw-results-${{ inputs.build_id }}
+        path: |
+          yocto_boot_results.xml
+          yocto_serial_boot.log
+          yocto_allocated_place.txt
+        if-no-files-found: warn

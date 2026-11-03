@@ -1,0 +1,185 @@
+name: Yocto Zhihe A210 Build & Hardware Netboot (OSU-OSL)
+
+on:
+  workflow_dispatch:
+    inputs:
+      meta_riscv_repo:
+        description: "meta-riscv repository (owner/repo)"
+        required: false
+        default: "riscv/meta-riscv"
+        type: string
+      meta_riscv_ref:
+        description: "meta-riscv branch, tag, or commit SHA to test"
+        required: false
+        default: "master"
+        type: string
+      existing_build_id:
+        description: "Optional: skip BitBake build and boot an existing /var/lib/tftpboot/builds/<build_id>"
+        required: false
+        default: ""
+        type: string
+      pool:
+        description: "Labgrid pool tag to dynamically reserve an available board from"
+        required: false
+        default: "a210-yocto"
+        type: string
+      build_runner:
+        description: "GitHub runner label for the x86 kas cross-build job"
+        required: false
+        default: "ubuntu-24.04-16core"
+        type: string
+
+concurrency:
+  group: yocto-zhihe-a210-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  build-yocto:
+    name: Build zhihe-a210 (kas / meta-riscv)
+    if: ${{ inputs.existing_build_id == '' }}
+    runs-on: ${{ inputs.build_runner || vars.YOCTO_BUILD_RUNNER || 'ubuntu-24.04-16core' }}
+    timeout-minutes: 360
+    outputs:
+      build_id: ${{ steps.meta.outputs.build_id }}
+      meta_riscv_sha: ${{ steps.meta.outputs.meta_riscv_sha }}
+    steps:
+      - name: Reclaim Pre-Installed SDK Disk Space if Needed
+        run: |
+          AVAIL_GB=$(df -BG / | awk 'NR==2 {gsub("G","",$4); print $4}')
+          echo "Initial free root disk: ${AVAIL_GB} GB"
+          if [ "$AVAIL_GB" -lt 80 ]; then
+            sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache || true
+            df -h /
+          fi
+
+      - name: Install Host Yocto & kas Dependencies
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential chrpath cpio debianutils diffstat file gawk gcc git \
+            iputils-ping jq libacl1 locales lz4 python3 python3-git \
+            python3-jinja2 python3-pexpect python3-pip python3-subunit \
+            python3-venv python3-websockets socat texinfo unzip wget xz-utils zstd
+          sudo locale-gen en_US.UTF-8
+          python3 -m venv "${RUNNER_TEMP}/kas-venv"
+          "${RUNNER_TEMP}/kas-venv/bin/pip" install --upgrade pip kas websockets
+          echo "${RUNNER_TEMP}/kas-venv/bin" >> "$GITHUB_PATH"
+
+      - name: Check out target meta-riscv revision
+        env:
+          TARGET_REPO: ${{ inputs.meta_riscv_repo || 'riscv/meta-riscv' }}
+          TARGET_REF: ${{ inputs.meta_riscv_ref || 'master' }}
+        run: |
+          set -euo pipefail
+          git init meta-riscv
+          git -C meta-riscv remote add origin "https://github.com/${TARGET_REPO}.git"
+          git -C meta-riscv fetch --depth 1 origin "${TARGET_REF}"
+          git -C meta-riscv checkout FETCH_HEAD
+
+      - name: Compute Build Metadata
+        id: meta
+        run: |
+          SHA="$(git -C meta-riscv rev-parse --short=8 HEAD)"
+          FULL_SHA="$(git -C meta-riscv rev-parse HEAD)"
+          DATE="$(date -u +%Y-%m-%d)"
+          BUILD_ID="${DATE}_yocto_${SHA}_${GITHUB_RUN_NUMBER}"
+          echo "build_id=${BUILD_ID}" >> "$GITHUB_OUTPUT"
+          echo "meta_riscv_sha=${FULL_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Warm Yocto sstate-cache
+        id: cache-sstate
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/yocto-cache/sstate-cache
+          key: yocto-zhihe-a210-sstate-${{ hashFiles('meta-riscv/conf/machine/zhihe-a210.conf', 'meta-riscv/recipes-kernel/linux/linux-zhihe-a210.bb', 'meta-riscv/kas/zhihe-a210.yml') }}-${{ github.run_id }}
+          restore-keys: |
+            yocto-zhihe-a210-sstate-${{ hashFiles('meta-riscv/conf/machine/zhihe-a210.conf', 'meta-riscv/recipes-kernel/linux/linux-zhihe-a210.bb', 'meta-riscv/kas/zhihe-a210.yml') }}-
+            yocto-zhihe-a210-sstate-
+
+      - name: Build core-image-minimal with kas
+        env:
+          LANG: en_US.UTF-8
+          SSTATE_DIR: ${{ runner.temp }}/yocto-cache/sstate-cache
+          DL_DIR: ${{ runner.temp }}/yocto-cache/downloads
+        run: |
+          set -euo pipefail
+          mkdir -p "$SSTATE_DIR" "$DL_DIR" out
+          printf '%s\n' \
+            'header:' \
+            '  version: 20' \
+            'distro: poky' \
+            'target: core-image-minimal' \
+            'local_conf_header:' \
+            '  ci-cache: |' \
+            '    EXTRA_IMAGE_FEATURES += "allow-empty-password empty-root-password allow-root-login"' \
+            '    IMAGE_FSTYPES = "cpio.gz"' \
+            '    PACKAGECONFIG:remove:pn-qemu-system-native = "sdl"' \
+            '    PACKAGECONFIG:remove:pn-qemu-native = "sdl"' \
+            '    BB_HASHSERVE_UPSTREAM = "wss://hashserv.yoctoproject.org/ws"' \
+            '    SSTATE_MIRRORS ?= "file://.* http://cdn.jsdelivr.net/yocto/sstate/all/PATH;downloadfilename=PATH"' \
+            '    INHERIT += "rm_work"' \
+            > meta-riscv/kas/ci-overrides.yml
+          timeout --signal=INT --kill-after=2m 320m \
+            kas build "meta-riscv/kas/zhihe-a210.yml:meta-riscv/kas/ci-overrides.yml" --target core-image-minimal
+
+          DEPLOY_DIR="build/tmp/deploy/images/zhihe-a210"
+          cp -L "${DEPLOY_DIR}/Image" out/Image
+          cp -L "${DEPLOY_DIR}/a210-dev.dtb" out/a210-dev.dtb
+          cp -L "${DEPLOY_DIR}/core-image-minimal-zhihe-a210.rootfs.cpio.gz" out/rootfs.cpio.gz
+
+          jq -n \
+            --arg build_id "${{ steps.meta.outputs.build_id }}" \
+            --arg build_type "yocto" \
+            --arg meta_riscv_sha "${{ steps.meta.outputs.meta_riscv_sha }}" \
+            --arg built_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{build_id: $build_id, build_type: $build_type, meta_riscv_sha: $meta_riscv_sha, built_at: $built_at}' \
+            > out/build-info.json
+          ls -lh out/
+
+      - name: Save Warm Yocto sstate-cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/yocto-cache/sstate-cache
+          key: ${{ steps.cache-sstate.outputs.cache-primary-key }}
+
+      - name: Upload Yocto Boot Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.build_id }}
+          path: |
+            out/Image
+            out/a210-dev.dtb
+            out/rootfs.cpio.gz
+            out/build-info.json
+          retention-days: 14
+
+  hw-test-osu-osl:
+    name: Netboot & Smoke Test on pool=a210-yocto (OSU-OSL)
+    needs: [build-yocto]
+    if: always() && (needs.build-yocto.result == 'success' || inputs.existing_build_id != '')
+    runs-on: [self-hosted, board-farm-controller]
+    timeout-minutes: 25
+    env:
+      BUILD_ID: ${{ inputs.existing_build_id || needs.build-yocto.outputs.build_id }}
+    steps:
+      - name: Checkout board-farm
+        uses: actions/checkout@v4
+
+      - name: Download Yocto Boot Bundle
+        if: ${{ inputs.existing_build_id == '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.BUILD_ID }}
+          path: ${{ runner.temp }}/artifacts-${{ env.BUILD_ID }}
+
+      - name: Stage & Boot Yocto Image on Available Pool Board
+        id: hw_boot
+        uses: ./.github/actions/a210-yocto-netboot-test
+        with:
+          build_id: ${{ env.BUILD_ID }}
+          artifact_dir: ${{ runner.temp }}/artifacts-${{ env.BUILD_ID }}
+          skip_stage: ${{ inputs.existing_build_id != '' && 'true' || 'false' }}
+          pool: ${{ inputs.pool || 'a210-yocto' }}
+          update_latest_label: "false"
