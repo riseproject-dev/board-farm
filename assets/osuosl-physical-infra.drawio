@@ -1,0 +1,210 @@
+<mxfile host="app.diagrams.net" version="24.7.0" type="device">
+  <diagram id="osuosl-rise-infra" name="OSUOSL Physical Infra &amp; Controls">
+    <mxGraphModel dx="1760" dy="1040" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1760" pageHeight="1000" background="#FFFFFF">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title_banner" value="&lt;b style='font-size:18px;'&gt;RISE Board Farm @ OSUOSL — Physical Infrastructure, Network &amp;amp; Control Boundaries&lt;/b&gt;&lt;br/&gt;&lt;span style='font-size:12px;color:#475569;'&gt;10 GbE Uplink (No Data Cap) • Dual VLANs (Private NAT CI + Public Jumpbox/Dev) • 10x 3U Shelves (100x Zhihe A210 + Future K3)&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#F8FAFC;strokeColor=#CBD5E1;strokeWidth=1.5;fontColor=#0F172A;fontFamily=Helvetica;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1680" height="58" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_osu" value="&lt;b&gt;OSUOSL-Controlled&lt;/b&gt;: Racks, Power/Relays, VLANs, 1U Jumpbox/DHCP (Chef)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=16;fillColor=#E1F5FE;strokeColor=#0288D1;strokeWidth=2;fontColor=#01579B;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="40" y="88" width="420" height="34" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_rise" value="&lt;b&gt;RISE-Controlled&lt;/b&gt;: GHA Runner Host, CI Containers, All Board FW/Kernel/OS" style="rounded=1;whiteSpace=wrap;html=1;arcSize=16;fillColor=#E8F5E9;strokeColor=#2E7D32;strokeWidth=2;fontColor=#1B5E20;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="472" y="88" width="418" height="34" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_shared" value="&lt;b&gt;Coordinated / Cookbook&lt;/b&gt;: &lt;code&gt;proj-rise&lt;/code&gt; PRs, Non-Root TFTP Area, Exporters*" style="rounded=1;whiteSpace=wrap;html=1;arcSize=16;fillColor=#EDE7F6;strokeColor=#5E35B1;strokeWidth=2;strokeDashArray=4,4;fontColor=#311B92;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="902" y="88" width="445" height="34" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_ext" value="&lt;b&gt;External / Cloud&lt;/b&gt;: GitHub Orgs, Cloud Build Farms, Dev SSH" style="rounded=1;whiteSpace=wrap;html=1;arcSize=16;fillColor=#FFF3E0;strokeColor=#FB8C00;strokeWidth=2;fontColor=#E65100;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1360" y="88" width="360" height="34" as="geometry"/>
+        </mxCell>
+        <mxCell id="ext_devs" value="&lt;b&gt;Upstream Maintainers &amp;amp; RISE Developers&lt;/b&gt;&lt;hr/&gt;• SSH via Jumpbox (&lt;code&gt;ProxyJump&lt;/code&gt;) to Private CI Boards&lt;br/&gt;• Direct inbound SSH (&lt;code&gt;22/tcp&lt;/code&gt;) to select Public-VLAN Boards" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FFF3E0;strokeColor=#FB8C00;strokeWidth=2;align=left;spacingLeft=10;verticalAlign=top;spacingTop=6;fontColor=#7C2D12;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="40" y="142" width="440" height="92" as="geometry"/>
+        </mxCell>
+        <mxCell id="ext_net" value="&lt;b&gt;OSUOSL Core Routers, NAT Gateways &amp;amp; Internet Backbone [OSUOSL-Controlled]&lt;/b&gt;&lt;hr/&gt;• &lt;b&gt;10 GbE&lt;/b&gt; Farm Uplink • No Data Cap (metered outbound egress across both VLANs)&lt;br/&gt;• Routes &lt;b&gt;Public VLAN&lt;/b&gt; (Jumpbox + Dev IPs) &amp;amp; NATs &lt;b&gt;Private VLAN&lt;/b&gt; (100+ CI Boards)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#E1F5FE;strokeColor=#0288D1;strokeWidth=2;align=left;spacingLeft=12;verticalAlign=top;spacingTop=6;fontColor=#01579B;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="550" y="142" width="620" height="92" as="geometry"/>
+        </mxCell>
+        <mxCell id="ext_cloud" value="&lt;b&gt;GitHub Orgs &amp;amp; Cloud Cross-Compile Build Farms [RISE / Upstream]&lt;/b&gt;&lt;hr/&gt;• Orgs: &lt;code&gt;riscv/meta-riscv&lt;/code&gt;, &lt;code&gt;riseproject-dev/board-farm&lt;/code&gt;, AOSP RP024&lt;br/&gt;• Heavy x86/RISC-V builds on GHA Large Runners, Hetzner &amp;amp; Scaleway (Fork PRs gated)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#FFF3E0;strokeColor=#FB8C00;strokeWidth=2;align=left;spacingLeft=10;verticalAlign=top;spacingTop=6;fontColor=#7C2D12;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="142" width="490" height="92" as="geometry"/>
+        </mxCell>
+        <mxCell id="ctrl_node" value="&lt;b&gt;1x Control Node / Jumpbox (1U x86 — Provided by OSUOSL)&lt;/b&gt;&lt;br/&gt;&lt;span style='font-size:11px;'&gt;[OSUOSL-Controlled OS via Chef/Cinc • Coordinated via &lt;code&gt;proj-rise&lt;/code&gt; Cookbook]&lt;/span&gt;" style="swimlane;whiteSpace=wrap;html=1;rounded=1;arcSize=8;fillColor=#E1F5FE;strokeColor=#0288D1;strokeWidth=2.5;fontColor=#01579B;fontFamily=Helvetica;startSize=44;align=center;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="280" width="440" height="305" as="geometry"/>
+        </mxCell>
+        <mxCell id="ctrl_jump" value="&lt;b&gt;SSH Jumpbox&lt;/b&gt;&lt;br/&gt;&lt;span style='font-size:10px;'&gt;Public IPv4 + Private VLAN&lt;br/&gt;Accounts via &lt;code&gt;proj-rise&lt;/code&gt; PRs&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0288D1;strokeWidth=1.8;fontColor=#01579B;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="ctrl_node">
+          <mxGeometry x="18" y="58" width="195" height="82" as="geometry"/>
+        </mxCell>
+        <mxCell id="ctrl_dhcp" value="&lt;b&gt;DHCP &amp;amp; TFTP Server&lt;/b&gt;&lt;br/&gt;&lt;span style='font-size:10px;'&gt;Serves both Farm VLANs&lt;br/&gt;Can delegate netboot to RISE&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0288D1;strokeWidth=1.8;fontColor=#01579B;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="ctrl_node">
+          <mxGeometry x="227" y="58" width="195" height="82" as="geometry"/>
+        </mxCell>
+        <mxCell id="ctrl_boot_area" value="&lt;b&gt;RISE TFTP Boot Area&lt;/b&gt;&lt;br/&gt;&lt;span style='font-size:10px;'&gt;[RISE-Owned Dir, No Root]&lt;br/&gt;Upload &amp;amp; stage boot images&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;strokeWidth=1.8;fontColor=#1B5E20;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="ctrl_node">
+          <mxGeometry x="18" y="152" width="195" height="86" as="geometry"/>
+        </mxCell>
+        <mxCell id="ctrl_coord" value="&lt;b&gt;Labgrid Coordinator&lt;/b&gt;&lt;br/&gt;&lt;span style='font-size:10px;'&gt;Port &lt;code&gt;:20408&lt;/code&gt; + Hub &lt;code&gt;:8080&lt;/code&gt;&lt;br/&gt;(Cookbook or move to RISE)&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#5E35B1;strokeWidth=1.8;strokeDashArray=4,4;fontColor=#311B92;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="ctrl_node">
+          <mxGeometry x="227" y="152" width="195" height="86" as="geometry"/>
+        </mxCell>
+        <mxCell id="ctrl_note" value="&lt;b&gt;Governance:&lt;/b&gt; RISE proposes SSH accounts &amp;amp; config in the &lt;code&gt;osuosl-cookbooks/proj-rise&lt;/code&gt; Chef repo on GitHub; OSUOSL reviews &amp;amp; converges changes." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF9C4;strokeColor=#FBC02D;strokeWidth=1.2;fontColor=#7F6000;fontSize=10;align=left;spacingLeft=8;fontFamily=Helvetica;" vertex="1" parent="ctrl_node">
+          <mxGeometry x="18" y="248" width="404" height="44" as="geometry"/>
+        </mxCell>
+        <mxCell id="exp_bg2" value="" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#D1C4E9;strokeColor=#7E57C2;strokeWidth=1.2;opacity=55;" vertex="1" parent="1">
+          <mxGeometry x="56" y="626" width="440" height="335" as="geometry"/>
+        </mxCell>
+        <mxCell id="exp_bg1" value="" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#E1BEE7;strokeColor=#7E57C2;strokeWidth=1.5;opacity=75;" vertex="1" parent="1">
+          <mxGeometry x="48" y="618" width="440" height="335" as="geometry"/>
+        </mxCell>
+        <mxCell id="exp_node" value="&lt;b&gt;3–4x Labgrid Exporter Hosts (1U Dell x86, 1 per 2–3 Shelves)&lt;/b&gt;&lt;br/&gt;&lt;span style='font-size:11px;'&gt;[*Open Alignment: RISE-Managed vs. OSUOSL Chef-Managed Hosts]&lt;/span&gt;" style="swimlane;whiteSpace=wrap;html=1;rounded=1;arcSize=8;fillColor=#EDE7F6;strokeColor=#5E35B1;strokeWidth=2.5;strokeDashArray=5,5;fontColor=#311B92;fontFamily=Helvetica;startSize=44;align=center;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="610" width="440" height="345" as="geometry"/>
+        </mxCell>
+        <mxCell id="exp_daemon" value="&lt;b&gt;Labgrid Exporter Service&lt;/b&gt;&lt;br/&gt;&lt;span style='font-size:10px;'&gt;Exports per-board serial ports (&lt;code&gt;/dev/ttyUSB*&lt;/code&gt;), USB fastboot/ADB paths, and relay targets to Coordinator&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5E35B1;strokeWidth=1.8;fontColor=#311B92;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="exp_node">
+          <mxGeometry x="18" y="58" width="404" height="74" as="geometry"/>
+        </mxCell>
+        <mxCell id="exp_adb" value="&lt;b&gt;Isolated USB ADB &amp;amp; Fastboot Daemons (&lt;code&gt;ADBDriver&lt;/code&gt;)&lt;/b&gt;&lt;br/&gt;&lt;span style='font-size:10px;'&gt;1 host per 2–3 shelves (20–30 boards) avoids xHCI USB endpoint exhaustion &amp;amp; isolates ADB servers per DUT&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E7D32;strokeWidth=1.8;fontColor=#1B5E20;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="exp_node">
+          <mxGeometry x="18" y="144" width="404" height="78" as="geometry"/>
+        </mxCell>
+        <mxCell id="exp_power" value="&lt;b&gt;Power &amp;amp; Recovery Drivers&lt;/b&gt;: Labgrid &lt;code&gt;eth008&lt;/code&gt; (TCP over Switch) + Optional Copilot DFU" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0288D1;strokeWidth=1.5;fontColor=#01579B;fontSize=11;fontFamily=Helvetica;" vertex="1" parent="exp_node">
+          <mxGeometry x="18" y="234" width="404" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="exp_note" value="&lt;b&gt;*Open Item:&lt;/b&gt; Confirm whether Exporter hosts are managed directly by RISE (root) or by OSUOSL via the &lt;code&gt;proj-rise&lt;/code&gt; Chef cookbook." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF9C4;strokeColor=#FBC02D;strokeWidth=1.2;fontColor=#7F6000;fontSize=9.5;align=left;spacingLeft=8;fontFamily=Helvetica;" vertex="1" parent="exp_node">
+          <mxGeometry x="18" y="296" width="404" height="38" as="geometry"/>
+        </mxCell>
+        <mxCell id="switches_box" value="&lt;b&gt;Switching &amp;amp; Dual-VLAN Network Fabric [OSUOSL-Controlled]&lt;/b&gt;&lt;br/&gt;&lt;span style='font-size:11px;'&gt;OSUOSL Top-of-Rack Switch (10 GbE) + 10x Shelf Switches (MikroTik CRS326-24G-2S+IN, 1 GbE/port)&lt;/span&gt;" style="swimlane;whiteSpace=wrap;html=1;rounded=1;arcSize=8;fillColor=#E1F5FE;strokeColor=#0288D1;strokeWidth=2.5;fontColor=#01579B;fontFamily=Helvetica;startSize=44;align=center;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="550" y="280" width="620" height="195" as="geometry"/>
+        </mxCell>
+        <mxCell id="vlan_priv" value="&lt;b&gt;VLAN 1: Private CI VLAN (NAT)&lt;/b&gt;&lt;hr/&gt;• Bulk CI Fleet (private RFC1918 subnet)&lt;br/&gt;• Behind OSUOSL NAT Routers (outbound ok)&lt;br/&gt;• Reaches Control Node, Exporters &amp;amp; GHA Host&lt;br/&gt;• 1 GbE to Boards &amp;amp; ETH008-B Relays" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0288D1;strokeWidth=1.8;align=left;spacingLeft=10;verticalAlign=top;spacingTop=6;fontColor=#01579B;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="switches_box">
+          <mxGeometry x="20" y="58" width="280" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="vlan_pub" value="&lt;b&gt;VLAN 2: Public Dev VLAN (Public IPv4)&lt;/b&gt;&lt;hr/&gt;• Control Node Jumpbox Public IPv4&lt;br/&gt;• Small pool of Direct-Access Dev Boards&lt;br/&gt;• Firewall: Inbound &lt;code&gt;22/tcp&lt;/code&gt; (SSH) only by default&lt;br/&gt;• Extra IPs/ports via OSUOSL change request" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0288D1;strokeWidth=1.8;align=left;spacingLeft=10;verticalAlign=top;spacingTop=6;fontColor=#01579B;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="switches_box">
+          <mxGeometry x="320" y="58" width="280" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="shelf_infra" value="&lt;b&gt;Per-Shelf USB Aggregation, Power &amp;amp; Relays (x10 Shelves)&lt;/b&gt;&lt;br/&gt;&lt;span style='font-size:11px;'&gt;[Hardware Owned by RISE • Physical Assembly, Racking &amp;amp; Hands-On Upkeep by OSUOSL]&lt;/span&gt;" style="swimlane;whiteSpace=wrap;html=1;rounded=1;arcSize=8;fillColor=#ECEFF1;strokeColor=#546E7A;strokeWidth=2;fontColor=#263238;fontFamily=Helvetica;startSize=42;align=center;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="550" y="505" width="620" height="165" as="geometry"/>
+        </mxCell>
+        <mxCell id="shelf_usb" value="&lt;b&gt;Per-Shelf USB Hubs &amp;amp; DFU Recovery&lt;/b&gt;&lt;hr/&gt;• Hub 1 (&lt;code&gt;CG-10U2AML&lt;/code&gt;): 10x FTDI UART Consoles&lt;br/&gt;• Hub 2 (FW shelves): 10x USB 2.0 Fastboot / ADB&lt;br/&gt;• &lt;i&gt;Evaluating BayLibre Copilot HAT for BROM DFU&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5E35B1;strokeWidth=1.8;align=left;spacingLeft=10;verticalAlign=top;spacingTop=6;fontColor=#311B92;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="shelf_infra">
+          <mxGeometry x="20" y="54" width="280" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="shelf_psu" value="&lt;b&gt;Switched 12V DC Power &amp;amp; Relays&lt;/b&gt;&lt;hr/&gt;• 1x Mean Well LRS-350-12 PSU (348W) + 12-ch Fuse&lt;br/&gt;• 2x Devantech &lt;b&gt;ETH008-B&lt;/b&gt; 8-ch Ethernet Relays&lt;br/&gt;• Cold power-cycles auto-on A210s (&lt;i&gt;K3 65W TBD&lt;/i&gt;)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0288D1;strokeWidth=1.8;align=left;spacingLeft=10;verticalAlign=top;spacingTop=6;fontColor=#01579B;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="shelf_infra">
+          <mxGeometry x="320" y="54" width="280" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="dut_bg2" value="" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#C8E6C9;strokeColor=#2E7D32;strokeWidth=1.2;opacity=55;" vertex="1" parent="1">
+          <mxGeometry x="566" y="716" width="620" height="245" as="geometry"/>
+        </mxCell>
+        <mxCell id="dut_bg1" value="" style="rounded=1;whiteSpace=wrap;html=1;arcSize=8;fillColor=#DCEDC8;strokeColor=#2E7D32;strokeWidth=1.5;opacity=75;" vertex="1" parent="1">
+          <mxGeometry x="558" y="708" width="620" height="245" as="geometry"/>
+        </mxCell>
+        <mxCell id="dut_fleet" value="&lt;b&gt;10x 3U Board Shelves — 100x Alibaba Zhihe A210 (+ ~10–12 SpacemiT K3 Planned)&lt;/b&gt;&lt;br/&gt;&lt;span style='font-size:11px;'&gt;[Physical Hands-On Care: OSUOSL • All Firmware, Bootloader, Kernel &amp;amp; OS: 100% RISE-Controlled]&lt;/span&gt;" style="swimlane;whiteSpace=wrap;html=1;rounded=1;arcSize=8;fillColor=#E8F5E9;strokeColor=#2E7D32;strokeWidth=2.5;fontColor=#1B5E20;fontFamily=Helvetica;startSize=44;align=center;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="550" y="700" width="620" height="255" as="geometry"/>
+        </mxCell>
+        <mxCell id="dut_yocto" value="&lt;b&gt;Yocto CI Pool&lt;/b&gt;&lt;hr/&gt;• &lt;code&gt;meta-riscv&lt;/code&gt;&lt;br/&gt;• Nightly &amp;amp; PR boot&lt;br/&gt;• TFTP / RAM rootfs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E7D32;strokeWidth=1.8;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;fontColor=#1B5E20;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="dut_fleet">
+          <mxGeometry x="18" y="58" width="140" height="118" as="geometry"/>
+        </mxCell>
+        <mxCell id="dut_aosp" value="&lt;b&gt;AOSP CI Pool&lt;/b&gt;&lt;hr/&gt;• RP024 Android&lt;br/&gt;• Fastboot flash&lt;br/&gt;• USB ADB testing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E7D32;strokeWidth=1.8;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;fontColor=#1B5E20;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="dut_fleet">
+          <mxGeometry x="168" y="58" width="140" height="118" as="geometry"/>
+        </mxCell>
+        <mxCell id="dut_kernel" value="&lt;b&gt;Kernel &amp;amp; Userspace&lt;/b&gt;&lt;hr/&gt;• Mainline / RVCK&lt;br/&gt;• GCC / LLVM / RVV&lt;br/&gt;• &lt;code&gt;riscv-runner&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E7D32;strokeWidth=1.8;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;fontColor=#1B5E20;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="dut_fleet">
+          <mxGeometry x="318" y="58" width="140" height="118" as="geometry"/>
+        </mxCell>
+        <mxCell id="dut_dev" value="&lt;b&gt;Developer Pool&lt;/b&gt;&lt;hr/&gt;• Public IPv4 SSH&lt;br/&gt;• Or via Jumpbox&lt;br/&gt;• Bring-up &amp;amp; debug" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1F5FE;strokeColor=#0288D1;strokeWidth=1.8;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;fontColor=#01579B;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="dut_fleet">
+          <mxGeometry x="468" y="58" width="134" height="118" as="geometry"/>
+        </mxCell>
+        <mxCell id="dut_footer" value="&lt;b&gt;Per-Board Interfaces:&lt;/b&gt; 1 GbE RJ45 (DHCP/TFTP/Fastboot-UDP/SSH) • FTDI UART Console (&lt;code&gt;115200 8N1&lt;/code&gt;) • USB 2.0 OTG (Fastboot/ADB) • Switched 12V Barrel&lt;br/&gt;&lt;b&gt;OS Handover:&lt;/b&gt; OSUOSL flashes RISE's baseline image at initial shelf bring-up; post-handover software &amp;amp; firmware are 100% RISE-owned." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F1F8E9;strokeColor=#81C784;strokeWidth=1.2;fontColor=#1B5E20;fontSize=10;align=left;spacingLeft=8;fontFamily=Helvetica;" vertex="1" parent="dut_fleet">
+          <mxGeometry x="18" y="188" width="584" height="52" as="geometry"/>
+        </mxCell>
+        <mxCell id="gha_host" value="&lt;b&gt;1x GitHub Actions Runner Host (x86, 16+ Cores, 64GB+ RAM, NVMe)&lt;/b&gt;&lt;br/&gt;&lt;span style='font-size:11px;'&gt;[100% RISE-Controlled — Co-located at OSUOSL on Both Farm VLANs]&lt;/span&gt;" style="swimlane;whiteSpace=wrap;html=1;rounded=1;arcSize=8;fillColor=#E8F5E9;strokeColor=#2E7D32;strokeWidth=2.5;fontColor=#1B5E20;fontFamily=Helvetica;startSize=44;align=center;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="280" width="490" height="675" as="geometry"/>
+        </mxCell>
+        <mxCell id="gha_desc" value="&lt;b&gt;Full RISE Operational Control:&lt;/b&gt; Root access, OS updates, Docker/Podman ephemeral runner containers, secrets &amp;amp; workflow concurrency. Isolated from OSU jumpbox." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E7D32;strokeWidth=1.4;fontColor=#1B5E20;fontSize=10.5;align=left;spacingLeft=10;fontFamily=Helvetica;" vertex="1" parent="gha_host">
+          <mxGeometry x="20" y="56" width="450" height="54" as="geometry"/>
+        </mxCell>
+        <mxCell id="gha_yocto" value="&lt;b&gt;Containerized GHA Runner Pool — Yocto (&lt;code&gt;meta-riscv&lt;/code&gt;)&lt;/b&gt;" style="swimlane;whiteSpace=wrap;html=1;rounded=1;arcSize=8;fillColor=#F1F8E9;strokeColor=#2E7D32;strokeWidth=2;fontColor=#1B5E20;fontFamily=Helvetica;startSize=28;align=left;spacingLeft=12;collapsible=0;fontSize=11.5;" vertex="1" parent="gha_host">
+          <mxGeometry x="20" y="126" width="450" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="gha_yocto_wf" value="&lt;b&gt;Workflow Executor&lt;/b&gt;&lt;hr/&gt;• Pulls &lt;code&gt;Image&lt;/code&gt;, &lt;code&gt;dtb&lt;/code&gt;, &lt;code&gt;cpio.gz&lt;/code&gt;&lt;br/&gt;• Stages to TFTP boot dir&lt;br/&gt;• Posts Check Run via App" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#43A047;strokeWidth=1.5;align=left;spacingLeft=8;verticalAlign=top;spacingTop=5;fontColor=#1B5E20;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="gha_yocto">
+          <mxGeometry x="16" y="40" width="220" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="gha_yocto_lg" value="&lt;b&gt;Labgrid Client&lt;/b&gt;&lt;hr/&gt;• &lt;code&gt;reserve / lock&lt;/code&gt; board&lt;br/&gt;• Power cycle &amp;amp; U-Boot TFTP&lt;br/&gt;• &lt;code&gt;pytest-labgrid&lt;/code&gt; suite" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#1B5E20;strokeWidth=1.8;align=left;spacingLeft=8;verticalAlign=top;spacingTop=5;fontColor=#1B5E20;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="gha_yocto">
+          <mxGeometry x="250" y="40" width="184" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="gha_aosp" value="&lt;b&gt;Containerized GHA Runner Pool — AOSP (RP024 Android)&lt;/b&gt;" style="swimlane;whiteSpace=wrap;html=1;rounded=1;arcSize=8;fillColor=#F1F8E9;strokeColor=#2E7D32;strokeWidth=2;fontColor=#1B5E20;fontFamily=Helvetica;startSize=28;align=left;spacingLeft=12;collapsible=0;fontSize=11.5;" vertex="1" parent="gha_host">
+          <mxGeometry x="20" y="292" width="450" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="gha_aosp_wf" value="&lt;b&gt;AOSP Test Harness&lt;/b&gt;&lt;hr/&gt;• Downloads cloud AOSP build&lt;br/&gt;• Tradefed / VTS / boot smoke&lt;br/&gt;• Per-board concurrency lock" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#43A047;strokeWidth=1.5;align=left;spacingLeft=8;verticalAlign=top;spacingTop=5;fontColor=#1B5E20;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="gha_aosp">
+          <mxGeometry x="16" y="40" width="220" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="gha_aosp_lg" value="&lt;b&gt;Labgrid Client&lt;/b&gt;&lt;hr/&gt;• Enters U-Boot &lt;code&gt;fastboot&lt;/code&gt;&lt;br/&gt;• Flashes via Exporter USB&lt;br/&gt;• Isolated &lt;code&gt;ADBDriver&lt;/code&gt; tunnel" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#1B5E20;strokeWidth=1.8;align=left;spacingLeft=8;verticalAlign=top;spacingTop=5;fontColor=#1B5E20;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="gha_aosp">
+          <mxGeometry x="250" y="40" width="184" height="96" as="geometry"/>
+        </mxCell>
+        <mxCell id="gha_kern" value="&lt;b&gt;Containerized GHA Runner Pool — Kernel / Toolchain / Userspace&lt;/b&gt;" style="swimlane;whiteSpace=wrap;html=1;rounded=1;arcSize=8;fillColor=#F1F8E9;strokeColor=#2E7D32;strokeWidth=2;fontColor=#1B5E20;fontFamily=Helvetica;startSize=28;align=left;spacingLeft=12;collapsible=0;fontSize=11.5;" vertex="1" parent="gha_host">
+          <mxGeometry x="20" y="458" width="450" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="gha_kern_lg" value="&lt;b&gt;Labgrid Client + SSH Test Runner:&lt;/b&gt; Ephemeral RAM netboot (&lt;code&gt;booti&lt;/code&gt;) for Linux kernel PRs, toolchain tests, and hardware telemetry without touching eMMC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#43A047;strokeWidth=1.5;align=left;spacingLeft=10;fontColor=#1B5E20;fontSize=10.5;fontFamily=Helvetica;" vertex="1" parent="gha_kern">
+          <mxGeometry x="16" y="38" width="418" height="78" as="geometry"/>
+        </mxCell>
+        <mxCell id="gha_hub" value="&lt;b&gt;RISE Services &amp;amp; Telemetry:&lt;/b&gt; Board Farm Hub Dashboard, Prometheus / LFX Metrics Exporter, Local Artifact Cache (or DHCP-delegated Netboot)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;strokeWidth=1.5;strokeDashArray=4,4;fontColor=#1B5E20;fontSize=10.5;align=left;spacingLeft=10;fontFamily=Helvetica;" vertex="1" parent="gha_host">
+          <mxGeometry x="20" y="602" width="450" height="56" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_uplink" value="&lt;b&gt;10 GbE Uplink&lt;/b&gt; (VLAN 1 + VLAN 2)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0288D1;strokeWidth=3;startArrow=classic;endArrow=classic;fontColor=#01579B;fontSize=11;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ext_net" target="switches_box">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_dev_jump" value="&lt;b&gt;SSH (22/tcp)&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#FB8C00;strokeWidth=2;endArrow=classic;fontColor=#E65100;fontSize=10.5;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ext_devs" target="ctrl_node">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_dev_pub" value="&lt;b&gt;Direct Dev SSH&lt;/b&gt; (Public VLAN)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#FB8C00;strokeWidth=1.8;strokeDashArray=4,4;endArrow=classic;fontColor=#E65100;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ext_devs" target="switches_box">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="480" y="188"/>
+              <mxPoint x="515" y="188"/>
+              <mxPoint x="515" y="315"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_cloud_gha" value="&lt;b&gt;HTTPS&lt;/b&gt;: Workflow Jobs + Built Artifacts" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#FB8C00;strokeWidth=2.5;endArrow=classic;fontColor=#E65100;fontSize=10.5;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ext_cloud" target="gha_host">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_ctrl_sw" value="&lt;b&gt;Both VLANs&lt;/b&gt;&lt;br/&gt;DHCP/TFTP, SSH, &lt;code&gt;:20408&lt;/code&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0288D1;strokeWidth=2.5;startArrow=classic;endArrow=classic;fontColor=#01579B;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ctrl_node" target="switches_box">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_exp_sw" value="&lt;b&gt;1 GbE&lt;/b&gt; (Coord + Relay TCP)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#5E35B1;strokeWidth=2.2;startArrow=classic;endArrow=classic;fontColor=#311B92;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="exp_node" target="switches_box">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="515" y="670"/>
+              <mxPoint x="515" y="430"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_exp_usb" value="&lt;b&gt;USB Uplinks&lt;/b&gt;&lt;br/&gt;UART + Fastboot/ADB" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#5E35B1;strokeWidth=2.5;startArrow=classic;endArrow=classic;fontColor=#311B92;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="exp_node" target="shelf_usb">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="526" y="760"/>
+              <mxPoint x="526" y="610"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_sw_relay" value="&lt;b&gt;1 GbE&lt;/b&gt; (&lt;code&gt;eth008&lt;/code&gt; Relays)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0288D1;strokeWidth=2;endArrow=classic;fontColor=#01579B;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="switches_box" target="shelf_psu">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1010" y="490"/>
+              <mxPoint x="1010" y="505"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_sw_dut" value="&lt;b&gt;1 GbE / Board&lt;/b&gt; (DHCP, TFTP, SSH)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0288D1;strokeWidth=2.5;startArrow=classic;endArrow=classic;fontColor=#01579B;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="switches_box" target="dut_fleet">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1195" y="420"/>
+              <mxPoint x="1195" y="825"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_psu_dut" value="&lt;b&gt;Switched 12V DC&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#546E7A;strokeWidth=2.2;endArrow=classic;fontColor=#263238;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="shelf_psu" target="dut_fleet">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_usb_dut" value="&lt;b&gt;UART + USB 2.0 OTG&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#5E35B1;strokeWidth=2.2;startArrow=classic;endArrow=classic;fontColor=#311B92;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="shelf_usb" target="dut_fleet">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_gha_sw" value="&lt;b&gt;Both VLANs&lt;/b&gt;&lt;br/&gt;Labgrid Client, TFTP Stage, DUT SSH" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E7D32;strokeWidth=2.8;startArrow=classic;endArrow=classic;fontColor=#1B5E20;fontSize=10.5;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="gha_host" target="switches_box">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

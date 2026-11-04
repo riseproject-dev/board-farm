@@ -52,6 +52,7 @@ Phase 1 (MVP)                             Phase 2 (Production Cloud)
 ## 4. Navigation & Documentation Map
 
 ### 📁 Architectural Specs (`docs/`)
+* **[OSUOSL Physical Infrastructure & Governance (RISE vs. OSUOSL)](docs/architecture-design/osuosl-physical-infra-and-governance.md):** Network/VLAN topology, host/exporter/runner tiering, Draw.io diagram, and RISE vs. OSUOSL operational control boundaries.
 * **[Management Software Proposal](docs/00-overview/management-software-proposal.md):** Overall project scope, phases, roadmap, and use cases.
 * **[Labgrid DHCP & TFTP Research](docs/phase-1-labgrid-pilot/labgrid-dhcp-tftp-research.md):** Labgrid 4-role process model, U-Boot TFTP vs PXE boot flows, and network isolation rules.
 * **[OpenBMC RISC-V BMC Plan](docs/phase-2-openbmc-production/openbmc-riscv-bmc-plan.md):** Implementation plan for OpenBMC multi-host Redfish controllers on x86 exporter hardware.
