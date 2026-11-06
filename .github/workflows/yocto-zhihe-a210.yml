@@ -26,7 +26,7 @@ on:
       build_runner:
         description: "GitHub runner label for the x86 kas cross-build job"
         required: false
-        default: "ubuntu-24.04-16core"
+        default: "ubuntu-latest"
         type: string
 
 concurrency:
@@ -37,18 +37,21 @@ jobs:
   build-yocto:
     name: Build zhihe-a210 (kas / meta-riscv)
     if: ${{ inputs.existing_build_id == '' }}
-    runs-on: ${{ inputs.build_runner || vars.YOCTO_BUILD_RUNNER || 'ubuntu-24.04-16core' }}
+    runs-on: ${{ inputs.build_runner || vars.YOCTO_BUILD_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 360
     outputs:
       build_id: ${{ steps.meta.outputs.build_id }}
       meta_riscv_sha: ${{ steps.meta.outputs.meta_riscv_sha }}
+      kernel_version: ${{ steps.kas_build.outputs.kernel_version }}
     steps:
       - name: Reclaim Pre-Installed SDK Disk Space if Needed
         run: |
           AVAIL_GB=$(df -BG / | awk 'NR==2 {gsub("G","",$4); print $4}')
           echo "Initial free root disk: ${AVAIL_GB} GB"
-          if [ "$AVAIL_GB" -lt 80 ]; then
-            sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache || true
+          if [ "$AVAIL_GB" -lt 100 ]; then
+            sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+              /usr/local/share/powershell /usr/local/share/chromium || true
+            sudo docker system prune -af --volumes || true
             df -h /
           fi
 
@@ -63,7 +66,7 @@ jobs:
             python3-venv python3-websockets socat texinfo unzip wget xz-utils zstd
           sudo locale-gen en_US.UTF-8
           python3 -m venv "${RUNNER_TEMP}/kas-venv"
-          "${RUNNER_TEMP}/kas-venv/bin/pip" install --upgrade pip kas websockets
+          "${RUNNER_TEMP}/kas-venv/bin/pip" install --upgrade pip kas==5.5 websockets
           echo "${RUNNER_TEMP}/kas-venv/bin" >> "$GITHUB_PATH"
 
       - name: Check out target meta-riscv revision
@@ -80,40 +83,33 @@ jobs:
       - name: Compute Build Metadata
         id: meta
         run: |
+          MACHINE="zhihe-a210"
           SHA="$(git -C meta-riscv rev-parse --short=8 HEAD)"
           FULL_SHA="$(git -C meta-riscv rev-parse HEAD)"
           DATE="$(date -u +%Y-%m-%d)"
-          BUILD_ID="${DATE}_yocto_${SHA}_${GITHUB_RUN_NUMBER}"
+          BUILD_ID="${DATE}_yocto_${MACHINE}_${SHA}_${GITHUB_RUN_NUMBER}"
+          echo "machine=${MACHINE}" >> "$GITHUB_OUTPUT"
           echo "build_id=${BUILD_ID}" >> "$GITHUB_OUTPUT"
           echo "meta_riscv_sha=${FULL_SHA}" >> "$GITHUB_OUTPUT"
 
-      - name: Restore Warm Yocto sstate-cache
-        id: cache-sstate
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ runner.temp }}/yocto-cache/sstate-cache
-          key: yocto-zhihe-a210-sstate-${{ hashFiles('meta-riscv/conf/machine/zhihe-a210.conf', 'meta-riscv/recipes-kernel/linux/linux-zhihe-a210.bb', 'meta-riscv/kas/zhihe-a210.yml') }}-${{ github.run_id }}
-          restore-keys: |
-            yocto-zhihe-a210-sstate-${{ hashFiles('meta-riscv/conf/machine/zhihe-a210.conf', 'meta-riscv/recipes-kernel/linux/linux-zhihe-a210.bb', 'meta-riscv/kas/zhihe-a210.yml') }}-
-            yocto-zhihe-a210-sstate-
-
       - name: Build core-image-minimal with kas
+        id: kas_build
         env:
           LANG: en_US.UTF-8
-          SSTATE_DIR: ${{ runner.temp }}/yocto-cache/sstate-cache
-          DL_DIR: ${{ runner.temp }}/yocto-cache/downloads
+          SSTATE_DIR: ${{ vars.YOCTO_SSTATE_DIR || format('{0}/yocto-cache/sstate-cache', runner.temp) }}
+          DL_DIR: ${{ vars.YOCTO_DL_DIR || format('{0}/yocto-cache/downloads', runner.temp) }}
         run: |
           set -euo pipefail
           mkdir -p "$SSTATE_DIR" "$DL_DIR" out
           printf '%s\n' \
             'header:' \
             '  version: 20' \
-            'distro: poky' \
             'target: core-image-minimal' \
             'local_conf_header:' \
             '  ci-cache: |' \
             '    EXTRA_IMAGE_FEATURES += "allow-empty-password empty-root-password allow-root-login"' \
             '    IMAGE_FSTYPES = "cpio.gz"' \
+            '    DISTRO_FEATURES:remove = "ptest x11 wayland vulkan opengl gobject-introspection-data"' \
             '    PACKAGECONFIG:remove:pn-qemu-system-native = "sdl"' \
             '    PACKAGECONFIG:remove:pn-qemu-native = "sdl"' \
             '    BB_HASHSERVE_UPSTREAM = "wss://hashserv.yoctoproject.org/ws"' \
@@ -124,25 +120,39 @@ jobs:
             kas build "meta-riscv/kas/zhihe-a210.yml:meta-riscv/kas/ci-overrides.yml" --target core-image-minimal
 
           DEPLOY_DIR="build/tmp/deploy/images/zhihe-a210"
+          KERNEL_VERSION="$(basename "$(readlink "${DEPLOY_DIR}/Image" || true)" | sed -n 's/^Image--\([0-9][0-9.]*\).*/\1/p')"
           cp -L "${DEPLOY_DIR}/Image" out/Image
           cp -L "${DEPLOY_DIR}/a210-dev.dtb" out/a210-dev.dtb
           cp -L "${DEPLOY_DIR}/core-image-minimal-zhihe-a210.rootfs.cpio.gz" out/rootfs.cpio.gz
+          if [ -z "${KERNEL_VERSION}" ]; then
+            KERNEL_VERSION="$(strings out/Image | sed -n 's/^Linux version \([0-9][0-9.]*\).*/\1/p' | head -n 1)"
+          fi
+          echo "kernel_version=${KERNEL_VERSION}" >> "$GITHUB_OUTPUT"
 
+          OE_CORE_SHA="$(git -C layers/openembedded-core rev-parse HEAD)"
+          BITBAKE_SHA="$(git -C layers/bitbake rev-parse HEAD)"
           jq -n \
             --arg build_id "${{ steps.meta.outputs.build_id }}" \
             --arg build_type "yocto" \
+            --arg machine "${{ steps.meta.outputs.machine }}" \
+            --arg kernel_version "${KERNEL_VERSION}" \
             --arg meta_riscv_sha "${{ steps.meta.outputs.meta_riscv_sha }}" \
+            --arg openembedded_core_sha "${OE_CORE_SHA}" \
+            --arg bitbake_sha "${BITBAKE_SHA}" \
             --arg built_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{build_id: $build_id, build_type: $build_type, meta_riscv_sha: $meta_riscv_sha, built_at: $built_at}' \
+            '{
+              build_id: $build_id,
+              build_type: $build_type,
+              machine: $machine,
+              kernel_version: $kernel_version,
+              meta_riscv_sha: $meta_riscv_sha,
+              openembedded_core_sha: $openembedded_core_sha,
+              bitbake_sha: $bitbake_sha,
+              built_at: $built_at
+            }' \
             > out/build-info.json
           ls -lh out/
-
-      - name: Save Warm Yocto sstate-cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ runner.temp }}/yocto-cache/sstate-cache
-          key: ${{ steps.cache-sstate.outputs.cache-primary-key }}
+          cat out/build-info.json
 
       - name: Upload Yocto Boot Bundle
         uses: actions/upload-artifact@v4
@@ -182,4 +192,5 @@ jobs:
           artifact_dir: ${{ runner.temp }}/artifacts-${{ env.BUILD_ID }}
           skip_stage: ${{ inputs.existing_build_id != '' && 'true' || 'false' }}
           pool: ${{ inputs.pool || 'a210-yocto' }}
+          expected_kernel_prefix: ${{ needs.build-yocto.outputs.kernel_version }}
           update_latest_label: "false"
