@@ -11,6 +11,7 @@ baseline before releasing the pool reservation.
 """
 
 from pathlib import Path
+import json
 import os
 import re
 import socket
@@ -172,6 +173,15 @@ def test_zhihe_a210_yocto_ram_netboot(
         full_path = Path("/var/lib/tftpboot") / tftp_dir / artifact
         assert full_path.is_file(), f"Missing staged TFTP artifact: {full_path}"
 
+    if not expected_kernel_prefix:
+        build_info_path = Path("/var/lib/tftpboot") / tftp_dir / "build-info.json"
+        if build_info_path.is_file():
+            try:
+                build_info = json.loads(build_info_path.read_text(encoding="utf-8"))
+                expected_kernel_prefix = build_info.get("kernel_version", "")
+            except Exception:
+                pass
+
     token = None
     place_selector = place_name
     acquired = False
@@ -252,7 +262,8 @@ def test_zhihe_a210_yocto_ram_netboot(
                     _write_slow(
                         ser,
                         "printf '===CI_PROBE_%s===\\n' START; "
-                        "uname -srm; "
+                        "uname -a; "
+                        "echo KERNEL_RELEASE=$(uname -r); "
                         "echo CORES=$(nproc); "
                         "cat /etc/issue; "
                         "ip addr show dev eth0 || true; "
@@ -270,9 +281,15 @@ def test_zhihe_a210_yocto_ram_netboot(
             )
             assert "CORES=8" in boot_buf, "Expected all 8 RISC-V cores online (CORES=8)"
 
-            uname_match = re.search(r"Linux\s+(\S+)\s+riscv64", boot_buf)
-            assert uname_match, "Could not parse 'uname -srm' output from probe"
+            uname_match = re.search(r"KERNEL_RELEASE=(\S+)", boot_buf)
+            if not uname_match:
+                uname_match = re.search(r"Linux\s+(?:zhihe-a210\s+)?(\S+).*riscv64", boot_buf)
+            assert uname_match, "Could not parse kernel release from 'uname' output in probe"
             kernel_rel = uname_match.group(1)
+            print(
+                f"\n[Probe] Running kernel release: {kernel_rel} "
+                f"(expected prefix: {expected_kernel_prefix or 'any'})"
+            )
             if expected_kernel_prefix:
                 assert kernel_rel.startswith(expected_kernel_prefix), (
                     f"Expected kernel release starting with '{expected_kernel_prefix}', got '{kernel_rel}'"
